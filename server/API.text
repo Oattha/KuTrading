@@ -1,0 +1,190 @@
+📌 API รวมของ Marketplace
+🔐 Auth (การยืนยันตัวตน)
+http://localhost:5001
+
+
+POST /api/auth/register → สมัครสมาชิกใหม่ (email + password + name)
+
+POST /api/auth/login → ล็อกอิน → คืน accessToken + refreshToken
+
+POST /api/auth/refresh → ใช้ refreshToken เพื่อออก accessToken ใหม่
+
+POST /api/auth/logout → ออกจากระบบ (ลบ refresh token ทิ้งฝั่ง backend ถ้ามี)
+
+👤 User (ผู้ใช้)
+
+GET /api/users/me → ดึงข้อมูล user ปัจจุบัน (ใช้ token)
+
+PUT /api/users/me → แก้ไขโปรไฟล์ (ชื่อ, ที่อยู่, เบอร์, รูป)
+
+GET /api/users/:id → ดูโปรไฟล์ user คนอื่น
+
+GET /api/users → (admin เท่านั้น) ดูรายชื่อ user ทั้งหมด
+
+PATCH /api/users/:id/ban → (admin) แบน user
+
+PATCH /api/users/:id/unban → (admin) ปลดแบน user
+
+🪪 KYC (ยืนยันตัวตน)
+
+POST /api/kyc/upload → user อัปโหลดเอกสาร KYC (เช่น บัตร ปชช.)
+
+GET /api/admin/kyc → (admin) ดึงรายการเอกสารที่รอตรวจสอบ
+
+PATCH /api/admin/kyc/:id/approve → (admin) อนุมัติ KYC
+
+PATCH /api/admin/kyc/:id/reject → (admin) ปฏิเสธ KYC
+
+📦 Post (โพสต์สินค้า)
+
+POST /api/posts → สร้างโพสต์ใหม่
+
+GET /api/posts → ดึงโพสต์ทั้งหมด
+
+GET /api/posts/:id → ดูรายละเอียดโพสต์
+
+PUT /api/posts/:id → แก้ไขโพสต์ของตัวเอง
+
+DELETE /api/posts/:id → ลบโพสต์ของตัวเอง
+
+POST /api/posts/:id/like → กดไลก์โพสต์
+
+POST /api/posts/:id/comment → คอมเมนต์ในโพสต์
+
+💬 Chat (แชท)
+
+POST /api/chats → สร้างห้องแชท (เริ่มคุยกับผู้ขาย)
+
+GET /api/chats → ดึงห้องแชทของ user
+
+GET /api/chats/:id/messages → ดึงข้อความในห้องแชท
+
+POST /api/chats/:id/messages → ส่งข้อความในห้องแชท
+
+🤝 Trade (การซื้อขาย/แลกเปลี่ยน)
+
+POST /api/trades → สร้าง trade ใหม่ (เริ่มต้นการซื้อขาย/แลกเปลี่ยน)
+
+GET /api/trades → ดึง trade ของ user ปัจจุบัน
+
+GET /api/trades/:id → ดูรายละเอียด trade
+
+POST /api/trades/:id/complete → ยืนยันการจบ trade
+
+POST /api/trades/:id/cancel → ยกเลิก trade
+
+GET /api/trades/history → ดูประวัติ trade (user)
+
+GET /api/admin/trades → (admin) ดู trade ทั้งหมด
+
+⭐ Review (รีวิว)
+
+POST /api/reviews → เขียนรีวิว (หลัง trade เสร็จ)
+
+GET /api/reviews/user/:id → ดูรีวิวของ user นั้น ๆ
+
+DELETE /api/reviews/:id → (admin) ลบรีวิวไม่เหมาะสม
+
+🚩 Report (รายงาน)
+
+POST /api/reports → user report (รีวิว/โพสต์ที่ไม่เหมาะสม)
+
+GET /api/admin/reports → (admin) ดูรายการ report ทั้งหมด
+
+PATCH /api/admin/reports/:id/resolve → (admin) resolve / ปิด report
+
+🔔 Notification (แจ้งเตือน)
+
+GET /api/notifications → ดึงแจ้งเตือนของ user
+
+PATCH /api/notifications/:id/read → ทำเครื่องหมายว่าอ่านแล้ว
+
+👑 Admin Logs (บันทึกการทำงาน admin)
+
+GET /api/admin/logs → ดูบันทึก action ของ admin เช่น approve KYC, ban user
+
+POST /api/admin/logs → (auto จากระบบ) บันทึก action ที่ admin ทำ
+
+🎯 สรุป
+
+API ตอนนี้ครอบคลุม:
+
+Auth → login/register/refresh
+
+User → profile + admin manage
+
+KYC → upload + approve/reject
+
+Post → CRUD + like/comment
+
+Chat → สร้างห้อง + ส่งข้อความ
+
+Trade → start/complete/cancel + history
+
+Review → รีวิว + admin ลบ
+
+Report → report + admin จัดการ
+
+Notification → แจ้งเตือน
+
+Admin Logs → บันทึกการทำงานของ admin
+
+
+
+
+
+
+
+C:\marketplace3\client\src\lib\axios.ts
+
+import axios from "axios"
+import { useAuth } from "@/store/auth"
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
+})
+
+// ดัก request → ใส่ token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token")
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// type ของ refresh response
+interface RefreshResponse {
+  accessToken: string
+}
+
+api.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    const originalRequest = err.config
+    if (err.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      try {
+        const refreshToken = localStorage.getItem("refreshToken")
+        if (!refreshToken) throw new Error("No refresh token")
+
+        const res = await axios.post<RefreshResponse>(
+          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          { refreshToken }
+        )
+
+        const newToken = res.data.accessToken
+        localStorage.setItem("token", newToken)
+
+        // retry request เดิม
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        return api(originalRequest)
+      } catch (refreshErr) {
+        console.error("Refresh failed:", refreshErr)
+        useAuth.getState().logout()
+        window.location.href = "/admin/login"
+      }
+    }
+    return Promise.reject(err)
+  }
+)

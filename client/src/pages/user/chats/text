@@ -1,0 +1,198 @@
+import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
+import { api } from "@/lib/api"
+// 🔑 ดึง userId จาก auth store/context ของคุณ
+import { useAuthStore } from "@/store/auth"  
+
+interface Conversation {
+  id: number
+  participants: { user: { id: number; name: string; avatarUrl?: string } }[]
+  messages: { text?: string; mediaUrl?: string; createdAt: string }[]
+}
+
+export default function ChatList() {
+  const [convs, setConvs] = useState<Conversation[]>([])
+  const user = useAuthStore(state => state.user)  // ✅ ใช้ user จาก auth store
+  const userId = user?.id
+
+  useEffect(() => {
+    const fetchConvs = async () => {
+      try {
+        // ✅ backend ใช้ /chat ไม่ใช่ /chats
+        const res = await api.get<Conversation[]>("/chat/conversations")
+        setConvs(res.data)
+      } catch (err) {
+        console.error("Error loading conversations", err)
+      }
+    }
+    fetchConvs()
+  }, [])
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">💬 แชทของฉัน</h1>
+      <div className="space-y-3">
+        {convs.map(c => {
+          const last = c.messages[0]
+          // ✅ หาอีกฝั่ง (ไม่ใช่เรา)
+          const other = c.participants.find(p => p.user.id !== userId)?.user
+          return (
+            <Link
+              to={`/chats/${c.id}`}
+              key={c.id}
+              className="flex items-center gap-3 bg-white rounded-xl border p-3 hover:bg-gray-50 transition"
+            >
+              <img
+                src={other?.avatarUrl || "https://via.placeholder.com/40"}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">{other?.name || "Unknown"}</p>
+                <p className="text-sm text-gray-500 truncate">
+                  {last?.text || (last?.mediaUrl ? "📷 รูปภาพ" : "ยังไม่มีข้อความ")}
+                </p>
+              </div>
+              {last && (
+                <span className="text-xs text-gray-400">
+                  {new Date(last.createdAt).toLocaleTimeString("th-TH")}
+                </span>
+              )}
+            </Link>
+          )
+        })}
+
+        {convs.length === 0 && (
+          <div className="p-10 text-center text-gray-500 border border-dashed rounded-xl">
+            ยังไม่มีการสนทนา
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+ChatList.tsx
+
+
+
+ChatList.tsx
+
+import { useEffect, useState } from "react"
+import { useParams } from "react-router-dom"
+import { api } from "@/lib/api"
+import { useAuthStore } from "@/store/auth"
+
+interface Message {
+  id: number
+  senderId: number
+  text?: string
+  mediaUrl?: string
+  createdAt: string
+}
+
+interface Conversation {
+  id: number
+  participants: { user: { id: number; name: string; avatarUrl?: string } }[]
+}
+
+export default function ChatRoom() {
+  const { conversationId } = useParams<{ conversationId: string }>()
+  const [messages, setMessages] = useState<Message[]>([])
+  const [conv, setConv] = useState<Conversation | null>(null)
+  const [input, setInput] = useState("")
+  const user = useAuthStore(state => state.user)
+
+  // โหลดข้อมูล conversation + messages
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const convRes = await api.get<Conversation>(`/chat/conversations/${conversationId}`)
+        setConv(convRes.data)
+
+        const msgRes = await api.get<Message[]>(`/chat/conversations/${conversationId}/messages`)
+        setMessages(msgRes.data)
+      } catch (err) {
+        console.error("Error loading chat room", err)
+      }
+    }
+    fetchData()
+  }, [conversationId])
+
+  const handleSend = async () => {
+    if (!input.trim() || !conversationId) return
+    try {
+      const res = await api.post<Message>("/chat/messages", {
+        conversationId: Number(conversationId),
+        text: input,
+      })
+      setMessages(prev => [...prev, res.data])
+      setInput("")
+    } catch (err) {
+      console.error("Error sending message", err)
+    }
+  }
+
+  const other = conv?.participants.find(p => p.user.id !== user?.id)?.user
+
+  return (
+    <div className="flex flex-col h-screen max-h-screen">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b bg-white shadow-sm">
+        <img
+          src={other?.avatarUrl || "https://via.placeholder.com/40"}
+          className="w-10 h-10 rounded-full object-cover"
+        />
+        <div>
+          <h2 className="font-semibold text-gray-900">{other?.name || "เพื่อน"}</h2>
+          <p className="text-xs text-green-600">ออนไลน์</p>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex ${msg.senderId === user?.id ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm shadow
+              ${msg.senderId === user?.id
+                  ? "bg-indigo-600 text-white rounded-br-none"
+                  : "bg-white text-gray-900 border rounded-bl-none"
+              }`}
+            >
+              <p>{msg.text || "📷 รูปภาพ"}</p>
+              <span className="text-xs opacity-70 block mt-1 text-right">
+                {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {messages.length === 0 && (
+          <div className="text-center text-gray-400 mt-10">ยังไม่มีข้อความ</div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t bg-white flex items-center gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          placeholder="พิมพ์ข้อความ..."
+          className="flex-1 rounded-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+        />
+        <button
+          onClick={handleSend}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+        >
+          ส่ง
+        </button>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,20 @@
+{
+  // ปิดการตรวจ CSS ปกติ (เพราะมันไม่รู้จัก @tailwind)
+  "css.validate": false,
+
+  // เปิด IntelliSense ของ Tailwind CSS
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  // เปิด Tailwind CSS class autocomplete
+  "tailwindCSS.emmetCompletions": true,
+
+  // ให้ Tailwind CSS รู้ว่าไฟล์ที่ใช้มีพวก .tsx, .ts, .js
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  // แนะนำการใช้ className กับ React
+  "editor.suggest.preview": true
+}
