@@ -9,6 +9,10 @@ export default function Reviews() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
 
+  // ✅ Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const reviewsPerPage = 8 // แสดงต่อหน้า 8 รีวิว
+
   useEffect(() => {
     const fetchReviews = async () => {
       try {
@@ -41,6 +45,16 @@ export default function Reviews() {
     }
   }
 
+  // ✅ Pagination logic
+  const totalPages = Math.ceil(reviews.length / reviewsPerPage)
+  const indexOfLast = currentPage * reviewsPerPage
+  const indexOfFirst = indexOfLast - reviewsPerPage
+  const currentReviews = reviews.slice(indexOfFirst, indexOfLast)
+
+  const handlePageClick = (page: number) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page)
+  }
+
   if (loading) return <p className="p-6">Loading...</p>
 
   return (
@@ -59,8 +73,8 @@ export default function Reviews() {
             </tr>
           </thead>
           <tbody>
-            {reviews.map((r) => (
-              <tr key={r.id} className="border-b">
+            {currentReviews.map((r) => (
+              <tr key={r.id} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-2 flex items-center gap-2">
                   {r.reviewer.avatarUrl && (
                     <img
@@ -99,6 +113,49 @@ export default function Reviews() {
           </tbody>
         </table>
       </div>
+
+      {/* ✅ Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <button
+            onClick={() => handlePageClick(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`px-3 py-1 rounded ${
+              currentPage === 1
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+            }`}
+          >
+            ⬅️ ก่อนหน้า
+          </button>
+
+          {[...Array(totalPages)].map((_, i) => (
+            <button
+              key={i}
+              onClick={() => handlePageClick(i + 1)}
+              className={`px-3 py-1 rounded ${
+                currentPage === i + 1
+                  ? "bg-indigo-500 text-white"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+
+          <button
+            onClick={() => handlePageClick(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-1 rounded ${
+              currentPage === totalPages
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+            }`}
+          >
+            ถัดไป ➡️
+          </button>
+        </div>
+      )}
     </div>
   )
 }

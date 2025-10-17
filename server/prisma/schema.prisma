@@ -34,6 +34,7 @@ enum PostVisibility {
 enum MessageType {
   text
   image
+  video
   system
 }
 
@@ -144,10 +145,12 @@ model Post {
   visibility  PostVisibility @default(public)
 
   images      PostImage[]
+  videos      PostVideo[]
   comments    Comment[]
   likes       Like[]
   trades      Trade[]
   reports     Report[] @relation("Report_TargetPost")
+  notifications Notification[] // 👈 Add this line for the opposite relation
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -164,6 +167,13 @@ model PostImage {
   position  Int     @default(0)
 
   @@index([postId])
+}
+
+model PostVideo {
+  id      Int    @id @default(autoincrement())
+  url     String   // ✅ ลิงก์ Cloudinary หรือ local path
+  postId  Int
+  post    Post   @relation(fields: [postId], references: [id])
 }
 
 model Comment {
@@ -275,6 +285,7 @@ model Trade {
   @@index([sellerId])
   @@index([status, updatedAt])
   Conversation Conversation[]
+  notifications Notification[] // 👈 Opposite relation to Notification.trade
 }
 
 
@@ -311,7 +322,16 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
+  // 👇 เพิ่มตรงนี้
+  post      Post?   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int?
+
+  trade     Trade?  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tradeId   Int?
+
   @@index([userId, isRead, createdAt])
+  @@index([postId])
+  @@index([tradeId])
 }
 
 model Report {

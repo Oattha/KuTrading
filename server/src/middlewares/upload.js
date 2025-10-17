@@ -5,10 +5,12 @@ import cloudinary from "../config/cloudinary.js";
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "marketplace",   // 📂 โฟลเดอร์ใน Cloudinary
-    allowed_formats: ["jpg", "png", "jpeg", "pdf"], // รองรับภาพและไฟล์
+    folder: "marketplace",
+    allowed_formats: ["jpg", "png", "jpeg", "pdf", "mp4", "mov", "avi"], // ✅ เพิ่มวิดีโอ
+    resource_type: "auto", // ✅ สำคัญมาก ต้องเพิ่ม
   },
 });
+
 
 const upload = multer({ storage });
 

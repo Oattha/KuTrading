@@ -1,10 +1,11 @@
+// C:\marketplace3\client\src\pages\user\trades\MyTrades.tsx
 import { useMemo, useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuth } from "@/store/auth"
 
 // ✅ import icons
-import { FaStore, FaHandshake, FaUser, FaMapMarkerAlt, FaCalendarAlt, FaComments, FaStar } from "react-icons/fa"
+import { FaStore, FaHandshake, FaUser, FaMapMarkerAlt, FaCalendarAlt, FaComments, FaStar, FaTrash } from "react-icons/fa"
 
 type TradeStatus = "requested" | "pending" | "accepted" | "completed" | "canceled"
 
@@ -67,6 +68,18 @@ export default function MyTrades() {
     } catch (err) {
       console.error("Update status failed:", err)
       alert("อัปเดตสถานะไม่สำเร็จ")
+    }
+  }
+
+  // ✅ NEW: ลบเทรด
+  const handleDeleteTrade = async (tradeId: number) => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบเทรดนี้?")) return
+    try {
+      await api.delete(`/trades/${tradeId}`)
+      setTrades(prev => prev.filter(t => t.id !== tradeId))
+    } catch (err) {
+      console.error("Delete trade failed:", err)
+      alert("ลบเทรดไม่สำเร็จ")
     }
   }
 
@@ -166,7 +179,7 @@ export default function MyTrades() {
             key={t.id}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5"
           >
-            <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-3 mb-2 w-full">
               {/* dropdown: seller เปลี่ยนได้, buyer disabled */}
               <select
                 value={t.status}
@@ -184,6 +197,17 @@ export default function MyTrades() {
               <span className="text-xs text-gray-500">
                 อัปเดตล่าสุด {new Date(t.updatedAt).toLocaleString("th-TH")}
               </span>
+
+              {/* ✅ ปุ่มลบเทรด: แสดงเฉพาะฝั่งผู้ขาย */}
+              {view === "seller" && (
+                <button
+                  onClick={() => handleDeleteTrade(t.id)}
+                  className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium transition"
+                  title="ลบเทรดนี้"
+                >
+                  <FaTrash /> ลบเทรด
+                </button>
+              )}
             </div>
 
             {t.post && (

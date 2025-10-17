@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from "react"
-import { useParams } from "react-router-dom"
+import { useParams, Link } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuth } from "@/store/auth"
 import EmojiPicker from "emoji-picker-react"
 import { io, Socket } from "socket.io-client"
-import { ArrowDownCircle } from "lucide-react"
-import { Link } from "react-router-dom"
-
+import { ArrowDownCircle, X } from "lucide-react"
 
 interface User {
   id: number
@@ -19,6 +17,7 @@ interface Message {
   senderId: number
   text?: string
   mediaUrl?: string
+  type?: "text" | "image" | "video"
   createdAt: string
   sender?: User
   reads?: { userId: number; readAt: string }[]
@@ -39,14 +38,12 @@ export default function TradeChatRoom() {
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [input, setInput] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showEmoji, setShowEmoji] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
-
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const socketRef = useRef<Socket | null>(null)
-  const lastLoggedId = useRef<number | null>(null)
-
   const { user } = useAuth()
   const myId = user?.id || Number(localStorage.getItem("userId"))
 
@@ -60,13 +57,13 @@ export default function TradeChatRoom() {
 
     const handleNewMessage = (msg: Message) => {
       if (msg.conversationId === Number(conversationId)) {
-        setMessages(prev => [...prev, msg])
+        setMessages((prev) => [...prev, msg])
       }
     }
 
     const handleRead = ({ userId, lastReadMessageId }: { userId: number; lastReadMessageId: number }) => {
-      setMessages(prev =>
-        prev.map(m =>
+      setMessages((prev) =>
+        prev.map((m) =>
           m.id === lastReadMessageId
             ? { ...m, reads: [...(m.reads || []), { userId, readAt: new Date().toISOString() }] }
             : m
@@ -88,21 +85,21 @@ export default function TradeChatRoom() {
   useEffect(() => {
     if (!conversationId) return
     api.get<Conversation>(`/chat/conversations/${conversationId}`)
-      .then(res => setConversation(res.data))
-      .catch(err => console.error("Error fetching conversation", err))
+      .then((res) => setConversation(res.data))
+      .catch((err) => console.error("Error fetching conversation", err))
 
     api.get<Message[]>(`/chat/conversations/${conversationId}/messages`)
-      .then(res => setMessages(res.data))
-      .catch(err => console.error("Error fetching messages", err))
+      .then((res) => setMessages(res.data))
+      .catch((err) => console.error("Error fetching messages", err))
   }, [conversationId])
 
-  // ✅ Mark as read (debounce)
+  // ✅ Mark as read
   useEffect(() => {
     if (!conversationId || messages.length === 0) return
     const lastMsg = messages[messages.length - 1]
     if (!lastMsg) return
 
-    const alreadyRead = lastMsg.reads?.some(r => r.userId === myId)
+    const alreadyRead = lastMsg.reads?.some((r) => r.userId === myId)
     if (lastMsg.senderId !== myId && !alreadyRead) {
       const timeout = setTimeout(() => {
         api.post(`/chat/conversations/${conversationId}/read`)
@@ -113,17 +110,15 @@ export default function TradeChatRoom() {
               lastReadMessageId: lastMsg.id,
             })
           })
-          .catch(err => console.error("Error marking as read", err))
+          .catch((err) => console.error("Error marking as read", err))
       }, 300)
       return () => clearTimeout(timeout)
     }
   }, [messages, conversationId, myId])
 
-  // ✅ scroll อัตโนมัติ
+  // ✅ auto scroll
   useEffect(() => {
-    if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }
+    if (autoScroll) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, autoScroll])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -139,6 +134,19 @@ export default function TradeChatRoom() {
     setShowScrollBtn(false)
   }
 
+  // ✅ preview ก่อนส่ง
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null
+    setFile(selectedFile)
+    if (selectedFile) setPreviewUrl(URL.createObjectURL(selectedFile))
+  }
+
+  const handleCancelFile = () => {
+    setFile(null)
+    setPreviewUrl(null)
+  }
+
+  // ✅ ส่งข้อความ
   const handleSend = async () => {
     if ((!input.trim() && !file) || !conversationId) return
     try {
@@ -149,7 +157,7 @@ export default function TradeChatRoom() {
         await api.post<Message>("/chat/messages", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         })
-        setFile(null)
+        handleCancelFile()
       } else {
         await api.post<Message>("/chat/messages", { conversationId, text: input })
         setInput("")
@@ -160,7 +168,7 @@ export default function TradeChatRoom() {
     }
   }
 
-  const other = conversation?.participants.find(p => p.user.id !== myId)?.user
+  const other = conversation?.participants.find((p) => p.user.id !== myId)?.user
 
   return (
     <div className="flex flex-col h-screen">
@@ -177,41 +185,37 @@ export default function TradeChatRoom() {
       </div>
 
       {/* Messages */}
-      <div
-        className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3 pb-24"
-        onScroll={handleScroll}
-      >
-        {messages.map(msg => {
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3 pb-32" onScroll={handleScroll}>
+        {messages.map((msg) => {
           const isMe = msg.senderId === myId
           const lastReadMessageId = messages
-            .filter(m => m.senderId === myId)
-            .filter(m => m.reads?.some(r => r.userId === other?.id))
-            .map(m => m.id)
+            .filter((m) => m.senderId === myId)
+            .filter((m) => m.reads?.some((r) => r.userId === other?.id))
+            .map((m) => m.id)
             .pop()
-
           return (
             <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-{!isMe && other && (
-  <Link to={`/profile/${other.id}`} className="mr-2 self-end">
-    <img
-      src={other.avatarUrl}
-      alt={other.name}
-      className="w-8 h-8 rounded-full hover:opacity-80 transition"
-    />
-  </Link>
-)}
+              {!isMe && other && (
+                <Link to={`/profile/${other.id}`} className="mr-2 self-end">
+                  <img
+                    src={other.avatarUrl}
+                    alt={other.name}
+                    className="w-8 h-8 rounded-full hover:opacity-80 transition"
+                  />
+                </Link>
+              )}
 
               <div
                 className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm shadow ${
-                  isMe
-                    ? "bg-indigo-600 text-white rounded-br-none"
-                    : "bg-white text-gray-900 border rounded-bl-none"
+                  isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white text-gray-900 border rounded-bl-none"
                 }`}
               >
                 {msg.text && <p>{msg.text}</p>}
-                {msg.mediaUrl && (
+                {msg.mediaUrl && msg.type === "video" ? (
+                  <video src={msg.mediaUrl} controls className="mt-2 max-h-60 rounded-lg border" />
+                ) : msg.mediaUrl ? (
                   <img src={msg.mediaUrl} alt="media" className="mt-2 max-h-60 rounded-lg border" />
-                )}
+                ) : null}
                 <span className="text-xs opacity-70 block mt-1 text-right">
                   {new Date(msg.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
                 </span>
@@ -227,17 +231,24 @@ export default function TradeChatRoom() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ปุ่ม Scroll to bottom */}
-      {showScrollBtn && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-24 right-6 h-10 w-10 flex items-center justify-center
-                     bg-white/40 backdrop-blur-md border border-white/30 
-                     text-gray-800 rounded-full shadow-lg hover:bg-white/60 transition"
-          aria-label="Scroll to bottom"
-        >
-          <ArrowDownCircle size={22} />
-        </button>
+      {/* ✅ Preview ก่อนส่ง */}
+      {previewUrl && (
+        <div className="fixed bottom-20 left-0 right-0 flex justify-center z-50">
+          <div className="relative bg-white border rounded-2xl p-2 shadow-lg max-w-[200px]">
+            <button
+              onClick={handleCancelFile}
+              className="absolute top-1 right-1 bg-black/40 text-white rounded-full p-1 hover:bg-black/60"
+              aria-label="ยกเลิก"
+            >
+              <X size={14} />
+            </button>
+            {file?.type.startsWith("video") ? (
+              <video src={previewUrl} className="rounded-xl max-h-40" controls />
+            ) : (
+              <img src={previewUrl} className="rounded-xl max-h-40 object-cover" />
+            )}
+          </div>
+        </div>
       )}
 
       {/* Input bar */}
@@ -251,7 +262,7 @@ export default function TradeChatRoom() {
             <div className="absolute bottom-[110%] left-0 z-50 drop-shadow-lg">
               <EmojiPicker
                 onEmojiClick={(e) => {
-                  setInput(prev => prev + e.emoji)
+                  setInput((prev) => prev + e.emoji)
                   setShowEmoji(false)
                 }}
                 autoFocusSearch={false}
@@ -259,17 +270,17 @@ export default function TradeChatRoom() {
             </div>
           )}
 
-          {/* File upload */}
-          <input id="fileInput" type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="hidden" />
-          <label htmlFor="fileInput" className="cursor-pointer text-[18px] hover:opacity-80" title="แนบรูปภาพ">
-            📷
+          {/* Upload */}
+          <input id="fileInput" type="file" accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
+          <label htmlFor="fileInput" className="cursor-pointer text-[18px] hover:opacity-80" title="แนบไฟล์">
+            📷🎥
           </label>
 
           {/* Input field */}
           <input
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSend()}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="พิมพ์ข้อความ..."
             className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400"
           />

@@ -28,6 +28,7 @@ export interface Post {
   visibility: "public" | "friendsOnly"
   author?: User
   images: PostImage[]
+  videos?: { id: number; url: string }[]
   comments: Comment[]
   likes: Like[]
 }
@@ -39,4 +40,5 @@ export interface PagedPostsResponse {
   page: number
   pageSize: number
   items: Post[]
+
 }

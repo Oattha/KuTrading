@@ -1,5 +1,7 @@
+// src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import ProtectedRoute from "@/components/ProtectedRoute"
+import { Toaster } from "react-hot-toast"
 
 // ===== Admin Pages =====
 import AdminLogin from "@/pages/admin/AdminLogin"
@@ -24,7 +26,8 @@ import KycUpload from "@/pages/user/KycUpload"
 // Posts
 import MyPosts from "@/pages/user/posts/MyPosts"
 import CreatePost from "@/pages/user/posts/CreatePost"
-import PostDetail from "@/pages/user/posts/PostDetail"
+import PostDetailPage from "@/pages/user/posts/PostDetailPage"
+import EditPost from "@/pages/user/posts/EditPost"
 
 // Trades
 import MyTrades from "@/pages/user/trades/MyTrades"
@@ -50,17 +53,20 @@ import Settings from "@/pages/user/Settings"
 export default function App() {
   return (
     <BrowserRouter>
+      {/* ✅ global toast */}
+      <Toaster position="top-right" reverseOrder={false} />
+
       <Routes>
         {/* ===== User Auth ===== */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ===== Protected User Pages (ใช้ UserLayout ครอบ) ===== */}
+        {/* ===== Protected User Pages ===== */}
         <Route
           path="/"
           element={
             <ProtectedRoute role="user">
-              <UserLayout />
+              <UserLayout /> {/* ฟัง socket ที่นี่แทน */}
             </ProtectedRoute>
           }
         >
@@ -69,26 +75,28 @@ export default function App() {
           <Route path="profile/:id" element={<Profile />} />
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="kyc-upload" element={<KycUpload />} />
+
+          {/* Posts */}
           <Route path="posts" element={<MyPosts />} />
           <Route path="posts/create" element={<CreatePost />} />
-          <Route path="posts/:id" element={<PostDetail />} />
+          <Route path="posts/:id" element={<PostDetailPage />} />
+          <Route path="posts/:id/edit" element={<EditPost />} />
+
+          {/* Trades */}
           <Route path="trades" element={<MyTrades />} />
+          <Route path="trades/create" element={<TradeCreate />} />
           <Route path="trades/:id" element={<TradeDetail />} />
-          <Route path="reviews" element={<UserReviews />} />
+          <Route path="trades/:tradeId/review" element={<TradeReview />} />
+          <Route path="trades/:tradeId/chat/:conversationId" element={<TradeChatRoom />} />
 
-{/* ✅ Chat routes */}
-<Route path="chats" element={<ChatList />} />
-<Route path="chats/trades" element={<TradeChatList />} /> {/* ต้องมาก่อน chats/:id */}
-<Route path="chats/:id" element={<ChatRoom />} />
+          {/* Chats */}
+          <Route path="chats" element={<ChatList />} />
+          <Route path="chats/trades" element={<TradeChatList />} />
+          <Route path="chats/:id" element={<ChatRoom />} />
 
-<Route path="notifications" element={<Notifications />} />
-<Route path="settings" element={<Settings />} />
-<Route path="trades/create" element={<TradeCreate />} />
-
-{/* ✅ Trade Chat ใช้ tradeId + conversationId */}
-<Route path="trades/:tradeId/chat/:conversationId" element={<TradeChatRoom />} />
-<Route path="trades/:tradeId/review" element={<TradeReview />} />
-
+          {/* Notifications / Settings */}
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         {/* ===== Admin Routes ===== */}

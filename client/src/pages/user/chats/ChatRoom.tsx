@@ -3,8 +3,8 @@ import { useParams } from "react-router-dom"
 import { api } from "@/lib/api"
 import { useAuth } from "@/store/auth"
 import EmojiPicker from "emoji-picker-react"
-import { io, Socket } from "socket.io-client"   // ✅ socket.io
-import { ArrowDownCircle } from "lucide-react"
+import { io, Socket } from "socket.io-client"
+import { ArrowDownCircle, X } from "lucide-react"
 import { Link } from "react-router-dom"
 
 interface User {
@@ -18,6 +18,7 @@ interface Message {
   senderId: number
   text?: string
   mediaUrl?: string
+  type?: "text" | "image" | "video"
   createdAt: string
   sender?: User
   reads?: { userId: number; readAt: string }[]
@@ -35,12 +36,13 @@ export default function ChatRoom() {
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [input, setInput] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null) // ✅ preview file
   const [showEmoji, setShowEmoji] = useState(false)
-  const [autoScroll, setAutoScroll] = useState(true) // ✅ คุม auto scroll
-  const [showScrollBtn, setShowScrollBtn] = useState(false) // ✅ แสดงปุ่ม scroll
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
-  const socketRef = useRef<Socket | null>(null)   // ✅ socket ref
-  const lastLoggedId = useRef<number | null>(null) // ✅ กัน log loop
+  const socketRef = useRef<Socket | null>(null)
+  const lastLoggedId = useRef<number | null>(null)
 
   const { user } = useAuth()
   const myId = user?.id || Number(localStorage.getItem("userId"))
@@ -48,31 +50,21 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!id) return
 
-    // ✅ connect socket
-    const socket = io(import.meta.env.VITE_SOCKET_URL, {
-      withCredentials: true,
-    })
+    const socket = io(import.meta.env.VITE_SOCKET_URL, { withCredentials: true })
     socketRef.current = socket
-
-    // join room
     socket.emit("joinRoom", { conversationId: id })
 
-    // ฟังข้อความใหม่ realtime
     const handleNewMessage = (msg: Message) => {
       if (msg.conversationId === Number(id)) {
         setMessages((prev) => [...prev, msg])
       }
     }
 
-    // ฟัง event ว่าอีกฝั่งอ่านแล้ว
     const handleRead = ({ userId, lastReadMessageId }: { userId: number; lastReadMessageId: number }) => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === lastReadMessageId
-            ? {
-                ...m,
-                reads: [...(m.reads || []), { userId, readAt: new Date().toISOString() }],
-              }
+            ? { ...m, reads: [...(m.reads || []), { userId, readAt: new Date().toISOString() }] }
             : m
         )
       )
@@ -80,7 +72,6 @@ export default function ChatRoom() {
 
     socket.on("message:new", handleNewMessage)
     socket.on("message:read", handleRead)
-
     return () => {
       socket.off("message:new", handleNewMessage)
       socket.off("message:read", handleRead)
@@ -91,66 +82,65 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!id) return
 
-    // ✅ โหลดข้อมูลห้อง
-    api.get<Conversation[]>(`/chat/conversations`)
-      .then(res => {
-        const conv = res.data.find(c => c.id === Number(id)) || null
+    api
+      .get<Conversation[]>(`/chat/conversations`)
+      .then((res) => {
+        const conv = res.data.find((c) => c.id === Number(id)) || null
         setConversation(conv)
       })
-      .catch(err => console.error("Error fetching conversation", err))
+      .catch((err) => console.error("Error fetching conversation", err))
 
-    // ✅ โหลดข้อความในห้อง
-    api.get<Message[]>(`/chat/conversations/${id}/messages`)
-      .then(res => setMessages(res.data))
-      .catch(err => console.error("Error fetching messages", err))
+    api
+      .get<Message[]>(`/chat/conversations/${id}/messages`)
+      .then((res) => setMessages(res.data))
+      .catch((err) => console.error("Error fetching messages", err))
   }, [id])
 
-  // ✅ Mark conversation ว่าอ่านแล้ว (debounce 300ms)
-// ✅ Mark conversation ว่าอ่านแล้ว (เฉพาะข้อความล่าสุด และไม่ยิงซ้ำ)
-useEffect(() => {
-  if (!id || messages.length === 0) return
-
-  const lastMsg = messages[messages.length - 1]
-  if (!lastMsg) return
-
-  // 👉 ยิงเฉพาะถ้า msg ไม่ใช่ของเรา และยังไม่มี read ของเรา
-  const alreadyRead = lastMsg.reads?.some(r => r.userId === myId)
-  if (lastMsg.senderId !== myId && !alreadyRead) {
-    const timeout = setTimeout(() => {
-      api.post(`/chat/conversations/${id}/read`)
-        .then(() => {
+  useEffect(() => {
+    if (!id || messages.length === 0) return
+    const lastMsg = messages[messages.length - 1]
+    if (!lastMsg) return
+    const alreadyRead = lastMsg.reads?.some((r) => r.userId === myId)
+    if (lastMsg.senderId !== myId && !alreadyRead) {
+      const timeout = setTimeout(() => {
+        api.post(`/chat/conversations/${id}/read`).then(() => {
           socketRef.current?.emit("message:read", {
             conversationId: id,
             userId: myId,
             lastReadMessageId: lastMsg.id,
           })
         })
-        .catch(err => console.error("Error marking as read", err))
-    }, 300)
-
-    return () => clearTimeout(timeout)
-  }
-}, [messages, id, myId])
-
-
-  // ✅ scroll แค่ตอน autoScroll เป็น true
-  useEffect(() => {
-    if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+      }, 300)
+      return () => clearTimeout(timeout)
     }
+  }, [messages, id, myId])
+
+  useEffect(() => {
+    if (autoScroll) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, autoScroll])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget
     const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 5
     setAutoScroll(isAtBottom)
-    setShowScrollBtn(!isAtBottom) // ✅ ถ้าไม่อยู่ล่างสุด → โชว์ปุ่ม
+    setShowScrollBtn(!isAtBottom)
   }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     setAutoScroll(true)
     setShowScrollBtn(false)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null
+    setFile(selectedFile)
+    if (selectedFile) setPreviewUrl(URL.createObjectURL(selectedFile))
+  }
+
+  const handleCancelFile = () => {
+    setFile(null)
+    setPreviewUrl(null)
   }
 
   const handleSend = async () => {
@@ -163,150 +153,109 @@ useEffect(() => {
         await api.post<Message>("/chat/messages", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         })
-        setFile(null)
+        handleCancelFile()
       } else {
-        await api.post<Message>("/chat/messages", {
-          conversationId: id,
-          text: input,
-        })
+        await api.post<Message>("/chat/messages", { conversationId: id, text: input })
         setInput("")
       }
-      // ❌ ไม่ต้อง setMessages เอง → backend broadcast ให้แล้ว
-      setAutoScroll(true) // ✅ ส่งข้อความเอง → auto scroll ลงล่าง
+      setAutoScroll(true)
     } catch (err) {
       console.error("Error sending message", err)
     }
   }
 
-  const other = conversation?.participants.find(p => p.user.id !== myId)?.user
+  const other = conversation?.participants.find((p) => p.user.id !== myId)?.user
 
-  // ✅ log myId แค่ตอนเปลี่ยน
-  useEffect(() => {
-    console.log("myId =", myId)
-  }, [myId])
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b bg-white shadow-sm flex-shrink-0">
+        <Link to={`/profile/${other?.id}`} className="flex items-center gap-3 hover:opacity-80 transition">
+          {other?.avatarUrl ? (
+            <img src={other.avatarUrl} alt={other.name} className="w-9 h-9 rounded-full" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gray-300" />
+          )}
+          <h2 className="font-semibold text-gray-900">{other ? other.name : `ห้องแชท #${id}`}</h2>
+        </Link>
+      </div>
 
-  // ✅ log messages เฉพาะตอนมีข้อความใหม่จริง ๆ
-  useEffect(() => {
-    const last = messages[messages.length - 1]
-    if (last && last.id !== lastLoggedId.current) {
-      console.log("📩 new message:", last)
-      lastLoggedId.current = last.id
-    }
-  }, [messages])
-
-return (
-  <div className="flex flex-col h-screen">
-{/* Header: ลอยค้างด้านบน */}
-<div className="flex items-center gap-3 px-4 py-3 border-b bg-white shadow-sm flex-shrink-0">
-  <Link
-    to={`/profile/${other?.id}`}
-    className="flex items-center gap-3 hover:opacity-80 transition"
-  >
-    {other?.avatarUrl ? (
-      <img
-        src={other.avatarUrl}
-        alt={other.name}
-        className="w-9 h-9 rounded-full"
-      />
-    ) : (
-      <div className="w-9 h-9 rounded-full bg-gray-300" />
-    )}
-    <h2 className="font-semibold text-gray-900">
-      {other ? other.name : `ห้องแชท #${id}`}
-    </h2>
-  </Link>
-</div>
-
-
-    {/* Messages: scroll แค่ส่วนนี้ */}
-    <div
-      className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3 pb-24"
-      onScroll={handleScroll}
-    >
-      {messages.map((msg) => {
-        const isMe = Number(msg.senderId) === Number(myId)
-
-        const lastReadMessageId = messages
-          .filter(m => m.senderId === myId)
-          .filter(m => m.reads?.some(r => r.userId === other?.id))
-          .map(m => m.id)
-          .pop()
-
-        return (
-          <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-{!isMe && other && (
-  <Link to={`/profile/${other.id}`} className="mr-2 self-end">
-    <img
-      src={other.avatarUrl}
-      alt={other.name}
-      className="w-8 h-8 rounded-full hover:opacity-80 transition"
-    />
-  </Link>
-)}
-
-            <div
-              className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm shadow ${
-                isMe
-                  ? "bg-indigo-600 text-white rounded-br-none"
-                  : "bg-white text-gray-900 border rounded-bl-none"
-              }`}
-            >
-              {msg.text && <p>{msg.text}</p>}
-              {msg.mediaUrl && (
-                <img src={msg.mediaUrl} alt="media" className="mt-2 max-h-60 rounded-lg border" />
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-3 pb-32" onScroll={handleScroll}>
+        {messages.map((msg) => {
+          const isMe = Number(msg.senderId) === Number(myId)
+          const lastReadMessageId = messages
+            .filter((m) => m.senderId === myId)
+            .filter((m) => m.reads?.some((r) => r.userId === other?.id))
+            .map((m) => m.id)
+            .pop()
+          return (
+            <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+              {!isMe && other && (
+                <Link to={`/profile/${other.id}`} className="mr-2 self-end">
+                  <img src={other.avatarUrl} alt={other.name} className="w-8 h-8 rounded-full hover:opacity-80 transition" />
+                </Link>
               )}
-              <span className="text-xs opacity-70 block mt-1 text-right">
-                {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-
-              {isMe && msg.id === lastReadMessageId && (
-                <span className="text-[10px] text-gray-300 block mt-0.5 text-right">
-                  ✔️ อ่านแล้ว
+              <div
+                className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm shadow ${
+                  isMe ? "bg-indigo-600 text-white rounded-br-none" : "bg-white text-gray-900 border rounded-bl-none"
+                }`}
+              >
+                {msg.text && <p>{msg.text}</p>}
+                {msg.mediaUrl && msg.type !== "video" && (
+                  <img src={msg.mediaUrl} alt="media" className="mt-2 max-h-60 rounded-lg border" />
+                )}
+                {msg.mediaUrl && msg.type === "video" && (
+                  <video src={msg.mediaUrl} controls className="mt-2 max-h-60 rounded-lg border" />
+                )}
+                <span className="text-xs opacity-70 block mt-1 text-right">
+                  {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
-              )}
+                {isMe && msg.id === lastReadMessageId && (
+                  <span className="text-[10px] text-gray-300 block mt-0.5 text-right">✔️ อ่านแล้ว</span>
+                )}
+              </div>
             </div>
+          )
+        })}
+        {messages.length === 0 && <p className="text-gray-500 text-center">ยังไม่มีข้อความ</p>}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* ✅ Preview ก่อนส่ง */}
+      {previewUrl && (
+        <div className="fixed bottom-20 left-0 right-0 flex justify-center z-50">
+          <div className="relative bg-white border rounded-2xl p-2 shadow-lg max-w-[200px]">
+            <button
+              onClick={handleCancelFile}
+              className="absolute top-1 right-1 bg-black/40 text-white rounded-full p-1 hover:bg-black/60"
+              aria-label="ยกเลิก"
+            >
+              <X size={14} />
+            </button>
+            {file?.type.startsWith("video") ? (
+              <video src={previewUrl} className="rounded-xl max-h-40" controls />
+            ) : (
+              <img src={previewUrl} className="rounded-xl max-h-40 object-cover" />
+            )}
           </div>
-        )
-      })}
-
-      {messages.length === 0 && (
-        <p className="text-gray-500 text-center">ยังไม่มีข้อความ</p>
+        </div>
       )}
-      <div ref={messagesEndRef} />
-    </div>
 
-    {/* ✅ ปุ่ม Scroll to bottom */}
-    {showScrollBtn && (
-      <button
-        onClick={scrollToBottom}
-        className="absolute bottom-24 right-6 
-                   h-10 w-10 flex items-center justify-center
-                   bg-white/40 backdrop-blur-md 
-                   border border-white/30 
-                   text-gray-800 
-                   rounded-full shadow-lg 
-                   hover:bg-white/60 
-                   transition"
-        aria-label="Scroll to bottom"
+      {/* Input bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40
+                   border-t bg-white/70 backdrop-blur-md
+                   p-3 pt-2 flex items-end justify-center"
       >
-        <ArrowDownCircle size={22} />
-      </button>
-    )}
-
-    {/* Input bar */}
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40
-                 border-t bg-white/70 backdrop-blur-md
-                 p-3 pt-2 flex items-end justify-center"
-    >
         <div
           className="relative flex items-center gap-2 w-full max-w-3xl
-                     bg-white/60 backdrop-blur-sm
-                     border border-white/50 shadow-sm
-                     rounded-full px-3 py-2"
+                       bg-white/60 backdrop-blur-sm
+                       border border-white/50 shadow-sm
+                       rounded-full px-3 py-2"
         >
           {/* Emoji */}
           <button
@@ -329,20 +278,20 @@ return (
             </div>
           )}
 
-          {/* File upload */}
+          {/* ✅ Upload Image or Video */}
           <input
             id="fileInput"
             type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            accept="image/*,video/*"
+            onChange={handleFileChange}
             className="hidden"
           />
           <label
             htmlFor="fileInput"
             className="cursor-pointer text-[18px] hover:opacity-80"
-            title="แนบรูปภาพ"
+            title="แนบรูปภาพหรือวิดีโอ"
           >
-            📷
+            📷🎥
           </label>
 
           {/* Input field */}
@@ -358,8 +307,8 @@ return (
           <button
             onClick={handleSend}
             className="shrink-0 ml-1 h-9 w-9 rounded-full
-                       bg-indigo-600 hover:bg-indigo-700
-                       text-white grid place-items-center shadow-sm"
+                         bg-indigo-600 hover:bg-indigo-700
+                         text-white grid place-items-center shadow-sm"
             aria-label="ส่ง"
           >
             ➤

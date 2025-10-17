@@ -13,7 +13,11 @@ import {
   addComment,
   likePost,
   getPostById,
-  toggleLike 
+  toggleLike,
+  editComment,
+  deleteComment,
+  addPostVideos,
+  deletePostVideo 
 } from "../controllers/postController.js";
 
 const router = express.Router();
@@ -56,6 +60,14 @@ router.get("/:id", authMiddleware, getPostById);
 
 // ✅ Toggle Like
 router.post("/:postId/like", authMiddleware, toggleLike)
+
+router.patch("/comment/:id", authMiddleware, editComment)
+router.delete("/comment/:id", authMiddleware, deleteComment)
+
+router.post("/:postId/videos", authMiddleware, upload.array("files", 5), addPostVideos)
+
+// ลบวิดีโอออกจากโพสต์
+router.delete("/videos/:videoId", authMiddleware, deletePostVideo);
 
 
 export default router;

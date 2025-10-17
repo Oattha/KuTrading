@@ -132,15 +132,25 @@ export const sendMessage = async (req, res) => {
 
     if (req.file) {
       try {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: "marketplace/messages",
-        })
-        mediaUrl = result.secure_url
-        type = "image"
-
-        if (req.file.path) {
-          await fs.unlink(req.file.path).catch(() => {})
+        let uploadResult
+        // 🎥 ถ้าเป็นวิดีโอ
+        if (req.file.mimetype.startsWith("video")) {
+          uploadResult = await cloudinary.uploader.upload_large(req.file.path, {
+            resource_type: "video",
+            folder: "marketplace/messages",
+            chunk_size: 6000000,
+          })
+          type = "video"
+        } else {
+          // 🖼️ ถ้าเป็นรูป
+          uploadResult = await cloudinary.uploader.upload(req.file.path, {
+            folder: "marketplace/messages",
+          })
+          type = "image"
         }
+
+        mediaUrl = uploadResult.secure_url
+        await fs.unlink(req.file.path).catch(() => {})
       } catch (err) {
         console.error("Cloudinary upload error:", err)
         return res.status(500).json({ message: "Error uploading file" })
@@ -157,8 +167,8 @@ export const sendMessage = async (req, res) => {
       },
       include: {
         sender: { select: { id: true, name: true, avatarUrl: true } },
-        conversation: { select: { id: true } }   // ✅ เพิ่มเพื่อดึง conversationId
-      }
+        conversation: { select: { id: true } },
+      },
     })
 
     await prisma.conversation.update({
@@ -170,6 +180,7 @@ export const sendMessage = async (req, res) => {
       where: { id: Number(conversationId) },
       include: { participants: true },
     })
+
     const otherIds = conv.participants
       .map((p) => p.userId)
       .filter((uid) => uid !== req.user.id)
@@ -180,26 +191,27 @@ export const sendMessage = async (req, res) => {
           userId: uid,
           type: "message",
           title: "ข้อความใหม่",
-          body: text ? text : "📷 รูปภาพใหม่",
+          body:
+            type === "video"
+              ? "🎥 วิดีโอใหม่"
+              : type === "image"
+              ? "📷 รูปภาพใหม่"
+              : text,
         })),
       })
     }
 
-    // ✅ เตรียม payload ส่งกลับพร้อม conversationId
-    const payload = {
-      ...msg,
-      conversationId: msg.conversation.id
-    }
-
-    // ✅ Broadcast event realtime
+    const payload = { ...msg, conversationId: msg.conversation.id }
     getIO().to(`conv_${conversationId}`).emit("message:new", payload)
-
     return res.json(payload)
   } catch (e) {
     console.error("Error sending message:", e)
-    return res.status(500).json({ message: "Error sending message", error: e.message })
+    return res
+      .status(500)
+      .json({ message: "Error sending message", error: e.message })
   }
 }
+
 
 export const getMessages = async (req, res) => {
   try {

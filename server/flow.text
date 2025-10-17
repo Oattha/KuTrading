@@ -264,3 +264,534 @@ Amazon SES
           │   └── ChatRoom.tsx      # คุยในห้องแชท
           ├── Notifications.tsx     # การแจ้งเตือน
           └── Settings.tsx          # ตั้งค่า, logout
+
+
+
+1) Prisma: เพิ่มโมเดล + ความสัมพันธ์
+1.1 เพิ่ม relation ใน User และ Post (อย่าลบของเดิม)
+model User {
+  // ... ของเดิมทั้งหมด
+  savedPosts SavedPost[]    // ✅ เพิ่มบรรทัดนี้
+}
+
+model Post {
+  // ... ของเดิมทั้งหมด
+  savedBy    SavedPost[]    // ✅ เพิ่มบรรทัดนี้
+}
+
+1.2 สร้างโมเดล SavedPost
+
+วางไว้ท้ายไฟล์ (ตำแหน่งไหนก็ได้ แต่อยู่ในไฟล์เดียวกัน)
+
+model SavedPost {
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId   Int
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId]) // ห้าม user เดียว save โพสต์เดิมซ้ำ
+  @@index([postId])
+}
+
+1.3 รัน migration
+npx prisma migrate dev --name add_saved_posts
+
+2) Backend
+2.1 Routes ใหม่: server/src/routes/savedRoutes.js
+
+ไม่ไปยุ่งไฟล์อื่นนอกจาก “เพิ่มไฟล์นี้” แล้วค่อย import เข้า index.js
+
+// server/src/routes/savedRoutes.js
+import express from "express"
+import { authCheck } from "../middlewares/authCheck.js"
+import { toggleSave, getSavedPosts } from "../controllers/savedController.js"
+
+const router = express.Router()
+
+// กด Save/Unsave
+router.post("/:postId/toggle", authCheck, toggleSave)
+
+// ดึงโพสต์ที่ user บันทึกไว้
+router.get("/", authCheck, getSavedPosts)
+
+export default router
+
+2.2 Controller ใหม่: server/src/controllers/savedController.js
+
+เพิ่มไฟล์ใหม่ ไม่ไปลบของเดิม
+
+// server/src/controllers/savedController.js
+import prisma from "../config/prisma.js"
+
+// ✅ กดสลับ Save / Unsave
+export const toggleSave = async (req, res) => {
+  try {
+    const postId = Number(req.params.postId)
+    const userId = req.user.id
+
+    const existing = await prisma.savedPost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    })
+
+    if (existing) {
+      await prisma.savedPost.delete({
+        where: { userId_postId: { userId, postId } },
+      })
+      return res.json({ saved: false })
+    } else {
+      await prisma.savedPost.create({
+        data: { userId, postId },
+      })
+      return res.json({ saved: true })
+    }
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "Error toggling save" })
+  }
+}
+
+// ✅ ดึงโพสต์ที่ถูกบันทึก
+export const getSavedPosts = async (req, res) => {
+  try {
+    const rows = await prisma.savedPost.findMany({
+      where: { userId: req.user.id },
+      include: {
+        post: {
+          include: {
+            author: { select: { id: true, name: true, avatarUrl: true, ratingAverage: true, ratingCount: true } },
+            images: { orderBy: { position: "asc" } },
+            comments: {
+              include: {
+                author: true,
+              },
+            },
+            likes: true,
+            trades: {
+              where: {
+                OR: [{ buyerId: req.user.id }, { sellerId: req.user.id }],
+              },
+              select: { id: true, status: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+
+    // map -> post พร้อม isSaved/tradeStatus
+    const posts = rows.map((r) => ({
+      ...r.post,
+      tradeStatus: r.post.trades && r.post.trades.length > 0 ? r.post.trades[0].status : null,
+      isSaved: true,
+    }))
+
+    res.json(posts)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "Error getting saved posts" })
+  }
+}
+
+2.3 ผูก Route ใน server/src/index.js
+
+เพิ่มเพียง 2 บรรทัด import + app.use (อย่าแก้ส่วนอื่น)
+
+// server/src/index.js
+import savedRoutes from "./routes/savedRoutes.js"   // ✅ เพิ่ม
+
+// ... โค้ดเดิมทั้งหมด
+
+app.use("/api/saved", savedRoutes)                  // ✅ เพิ่ม
+
+2.4 แก้ Controllers เดิม “แบบเพิ่มความสามารถ” (ไม่ลบของเดิม)
+2.4.1 ใน getPosts (ที่คุณเพิ่งแก้) เพิ่ม isSaved ให้ client รู้ว่าบันทึกไว้หรือยัง
+
+เอาฟังก์ชัน getPosts ทั้งก้อนนี้ไปแทนของเดิมได้เลย (ส่วนอื่นของไฟล์อย่าแตะ)
+
+// ---------------- GET POSTS ----------------
+export const getPosts = async (req, res) => {
+  try {
+    // ดึง post
+    const posts = await prisma.post.findMany({
+      include: {
+        author: { 
+          select: { id: true, name: true, avatarUrl: true, ratingAverage: true, ratingCount: true } 
+        },
+        images: { orderBy: { position: "asc" } },
+        comments: { include: { author: true } },
+        likes: true,
+        // ถ้า login → include trades, ถ้าไม่ login → false
+        trades: req.user
+          ? {
+              where: {
+                OR: [{ buyerId: req.user.id }, { sellerId: req.user.id }],
+              },
+              select: { id: true, status: true },
+            }
+          : false,
+      },
+      orderBy: { createdAt: "desc" },
+    })
+
+    // ถ้า login → เตรียม set ของ postId ที่ user บันทึกไว้
+    let savedIds = new Set()
+    if (req.user) {
+      const saved = await prisma.savedPost.findMany({
+        where: { userId: req.user.id },
+        select: { postId: true },
+      })
+      savedIds = new Set(saved.map((s) => s.postId))
+    }
+
+    // map tradeStatus + isSaved
+    const withStatus = posts.map((p) => ({
+      ...p,
+      tradeStatus: p.trades && p.trades.length > 0 ? p.trades[0].status : null,
+      isSaved: req.user ? savedIds.has(p.id) : false,
+    }))
+
+    return res.json(withStatus)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ message: "Error getting posts" })
+  }
+}
+
+2.4.2 ใน listPosts (ถ้าใช้ในหน้า feed แบบ pagination) ให้คืน isSaved เช่นกัน
+
+แทนเฉพาะฟังก์ชันนี้
+
+// ---------------- PAGINATION ----------------
+export const listPosts = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page ?? "1", 10), 1);
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize ?? "10", 10), 1), 50);
+
+    const [total, items] = await Promise.all([
+      prisma.post.count(),
+      prisma.post.findMany({
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          images: { orderBy: { position: "asc" } },
+          author: { 
+            select: { id: true, name: true, avatarUrl: true, ratingAverage: true, ratingCount: true } 
+          },
+          comments: { include: { author: true } },
+          likes: true,
+          trades: req.user
+            ? {
+                where: {
+                  OR: [{ buyerId: req.user.id }, { sellerId: req.user.id }],
+                },
+                select: { id: true, status: true },
+              }
+            : false,
+        },
+      }),
+    ]);
+
+    // saved set
+    let savedIds = new Set()
+    if (req.user) {
+      const saved = await prisma.savedPost.findMany({
+        where: { userId: req.user.id },
+        select: { postId: true },
+      })
+      savedIds = new Set(saved.map((s) => s.postId))
+    }
+
+    const withStatus = items.map((p) => ({
+      ...p,
+      tradeStatus: p.trades && p.trades.length > 0 ? p.trades[0].status : null,
+      isSaved: req.user ? savedIds.has(p.id) : false,
+    }))
+
+    return res.json({ ok: true, total, page, pageSize, items: withStatus });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, message: "Error listing posts" });
+  }
+};
+
+2.4.3 ใน getPostById ใส่ isSaved ด้วย
+
+แทนเฉพาะฟังก์ชันนี้
+
+// ดึงโพสต์เดียว พร้อมคอมเมนต์และรูปภาพ
+export const getPostById = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const post = await prisma.post.findUnique({
+      where: { id: Number(id) },
+      include: {
+        images: true,
+        comments: {
+          include: {
+            author: { select: { id: true, name: true, email: true, avatarUrl: true } }
+          },
+          orderBy: { createdAt: "asc" }
+        },
+        author: { select: { id: true, name: true, email: true, avatarUrl: true } },
+        trades: req.user
+          ? {
+              where: { OR: [{ buyerId: req.user.id }, { sellerId: req.user.id }] },
+              select: { id: true, status: true }
+            }
+          : false
+      }
+    })
+
+    if (!post) return res.status(404).json({ message: "Post not found" })
+
+    let isSaved = false
+    if (req.user) {
+      const s = await prisma.savedPost.findUnique({
+        where: { userId_postId: { userId: req.user.id, postId: post.id } },
+        select: { postId: true },
+      })
+      isSaved = !!s
+    }
+
+    const withStatus = {
+      ...post,
+      tradeStatus: post.trades && post.trades.length > 0 ? post.trades[0].status : null,
+      isSaved
+    }
+
+    res.json(withStatus)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: "Error fetching post" })
+  }
+}
+
+3) Frontend
+
+ด้านล่างเป็น “เพิ่มเฉพาะส่วนจำเป็น” โดย ไม่ตัดโค้ดเดิมออก
+คุณเพียง “เติม import / type / ปุ่ม / handler” เท่านั้น
+
+3.1 ปรับ Home.tsx ให้มีปุ่ม Save
+
+ไฟล์: C:\marketplace3\client\src\pages\user\Home.tsx
+
+(A) เพิ่ม import ไอคอน
+import { FaHome, FaRegCommentDots, FaExchangeAlt, FaPlus, FaTimes, FaBookmark, FaRegBookmark } from "react-icons/fa" // ✅ เพิ่ม FaBookmark, FaRegBookmark
+
+(B) เพิ่มฟิลด์ใน interface Post
+interface Post {
+  id: number
+  content: string
+  createdAt: string
+  author: Author
+  images: PostImage[]
+  comments: Comment[]
+  likes: Like[]
+  tradeStatus?: "requested" | "pending" | "accepted" | "completed" | "canceled" | null
+  isSaved?: boolean            // ✅ เพิ่ม
+}
+
+(C) เพิ่มฟังก์ชัน toggle save (วางข้างๆ handleToggleLike)
+const handleToggleSave = async (postId: number) => {
+  try {
+    // เรียก toggle
+    const res = await api.post(`/saved/${postId}/toggle`)
+    const { saved } = res.data
+
+    // อัปเดต state แบบเร็ว (optimistic)
+    setPosts(prev =>
+      prev.map(p => p.id === postId ? { ...p, isSaved: saved } : p)
+    )
+  } catch (err) {
+    console.error("Error toggling save", err)
+  }
+}
+
+(D) ใส่ปุ่ม Save ข้างปุ่มถูกใจ (ใน card ของแต่ละโพสต์)
+
+หาโค้ดส่วน “ปุ่มถูกใจ” แล้ว เพิ่มบล็อกปุ่ม Save ต่อท้าย ไม่ต้องเอาอันเดิมออก
+
+{/* ✅ ปุ่มถูกใจ + ปุ่มบันทึก */}
+<div className="flex items-center gap-3 mt-2">
+  <button
+    onClick={() => handleToggleLike(post.id)}
+    className={`px-3 py-1 rounded-full text-sm font-medium shadow 
+                ${post.likes.some(like => like.userId === user?.id) 
+                  ? "bg-red-500 text-white" 
+                  : "bg-gray-200 text-gray-700"}`}
+  >
+    ❤️ {post.likes.length}
+  </button>
+
+  {/* ✅ ปุ่ม Save/Unsave */}
+  <button
+    onClick={() => handleToggleSave(post.id)}
+    className={`px-3 py-1 rounded-full text-sm font-medium shadow inline-flex items-center gap-2
+                ${post.isSaved ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-700"}`}
+    title={post.isSaved ? "ลบออกจากที่บันทึก" : "บันทึกโพสต์นี้"}
+  >
+    {post.isSaved ? <FaBookmark /> : <FaRegBookmark />}
+    {post.isSaved ? "บันทึกแล้ว" : "บันทึก"}
+  </button>
+</div>
+
+
+หมายเหตุ: getPosts ฝั่งหลังบ้านที่เราแก้ จะส่ง isSaved มาด้วย (เมื่อผู้ใช้ล็อกอิน) ทำให้ปุ่มแสดงสถานะถูกต้องตั้งแต่โหลดครั้งแรก
+
+3.2 สร้างหน้า “โพสต์ที่บันทึกไว้” (ใหม่)
+
+ไฟล์: C:\marketplace3\client\src\pages\user\SavedPosts.tsx
+
+โค้ดนี้เป็นหน้าเรียบง่าย โหลด /saved แล้วแสดงเหมือน feed ย่อๆ (คุณจะปรับ UI ให้เหมือน Home.tsx ก็ได้ หรือค่อยทำทีหลัง)
+
+import { useEffect, useState } from "react"
+import { api } from "@/lib/api"
+import { Link } from "react-router-dom"
+import { FaBookmark } from "react-icons/fa"
+import { useAuth } from "@/store/auth"
+
+interface Author {
+  id: number
+  name: string
+  avatarUrl?: string
+}
+interface PostImage { id: number; url: string }
+interface Comment { id: number; content: string; createdAt: string; author: Author }
+interface Like { userId: number }
+interface Post {
+  id: number
+  content: string
+  createdAt: string
+  author: Author
+  images: PostImage[]
+  comments: Comment[]
+  likes: Like[]
+  tradeStatus?: "requested" | "pending" | "accepted" | "completed" | "canceled" | null
+  isSaved?: boolean
+}
+
+export default function SavedPosts() {
+  const { user } = useAuth()
+  const [items, setItems] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await api.get<Post[]>("/saved")
+        setItems(res.data)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
+  }, [])
+
+  if (loading) return <div className="p-6">กำลังโหลด...</div>
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex items-center gap-2 text-2xl font-bold">
+        <FaBookmark className="text-indigo-600" />
+        <h1>โพสต์ที่บันทึกไว้</h1>
+      </div>
+
+      <div className="mt-6 space-y-6">
+        {items.length === 0 ? (
+          <p className="text-gray-500">ยังไม่มีโพสต์ที่บันทึกไว้</p>
+        ) : (
+          items.map((post) => (
+            <div key={post.id} className="border rounded-2xl shadow-sm bg-white p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <Link to={`/profile/${post.author.id}`} className="flex items-center gap-3 hover:opacity-80">
+                  <img
+                    src={post.author.avatarUrl || "https://placehold.co/40"}
+                    alt={post.author.name}
+                    className="w-10 h-10 rounded-full object-cover border"
+                  />
+                  <div>
+                    <p className="font-semibold text-gray-800">{post.author.name}</p>
+                    <p className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString("th-TH")}</p>
+                  </div>
+                </Link>
+              </div>
+
+              <p className="text-gray-800">{post.content}</p>
+
+              {post.images?.length > 0 && (
+                <div className={`grid gap-2 ${post.images.length === 1 ? "grid-cols-1" : post.images.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"}`}>
+                  {post.images.map(img => (
+                    <img key={img.id} src={img.url} className="rounded-lg object-cover w-full h-56" />
+                  ))}
+                </div>
+              )}
+
+              {/* แสดงสถานะเทรดถ้ามี */}
+              {post.tradeStatus && (
+                <div>
+                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs
+                    ${post.tradeStatus === "completed" ? "bg-green-500 text-white" :
+                      post.tradeStatus === "pending" ? "bg-yellow-400 text-black" :
+                      post.tradeStatus === "canceled" ? "bg-red-500 text-white" : "bg-gray-300 text-gray-700"}`}>
+                    {post.tradeStatus === "requested" && "รอการยืนยัน"}
+                    {post.tradeStatus === "pending" && "รอดำเนินการ"}
+                    {post.tradeStatus === "accepted" && "ยอมรับแล้ว"}
+                    {post.tradeStatus === "completed" && "เสร็จสิ้น"}
+                    {post.tradeStatus === "canceled" && "ยกเลิกแล้ว"}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+3.3 เพิ่ม Route หน้า /saved
+
+ไฟล์ router หลักของ client (เช่น App.tsx หรือที่คุณประกาศ Routes อยู่)
+
+import SavedPosts from "@/pages/user/SavedPosts"   // ✅ เพิ่ม import
+
+// ด้านล่างใน <Routes>
+<Route path="/saved" element={<SavedPosts />} />   // ✅ เพิ่ม
+
+3.4 เพิ่มเมนูใน Navbar (ถ้าต้องการ)
+
+ไม่ต้องลบอันเดิม แค่ “เพิ่ม item” ใน navItems + ไอคอนบุ๊คมาร์ค
+
+import { FaHome, FaExchangeAlt, FaComments, FaBell, FaBookmark } from "react-icons/fa" // ✅ เพิ่ม FaBookmark
+
+const navItems = [
+  { path: "/", icon: <FaHome size={18} />, label: "Home" },
+  { path: "/trades", icon: <FaExchangeAlt size={18} />, label: "Trades" },
+  { path: "/chats", icon: <FaComments size={18} />, label: "Chats" },
+  { path: "/notifications", icon: <FaBell size={18} />, label: "Notifications" },
+  { path: "/saved", icon: <FaBookmark size={18} />, label: "Saved" }, // ✅ เพิ่มเมนู
+]
+
+
+ถ้าอยากมี “จุดแดง” บนเมนู Saved เมื่อมีของใหม่ ก็บวก state ที่หน้า Home ให้ยิง event/localStorage ไว้เช็คได้ภายหลัง — ค่อยทำต่อได้
+
+4) สรุปงานที่เพิ่ม
+
+ Prisma: เพิ่ม relation + โมเดล SavedPost แล้ว migrate
+
+ Backend: เพิ่ม savedRoutes + savedController + ผูก /api/saved
+
+ แก้ getPosts / listPosts / getPostById ให้ส่ง isSaved กลับมาเมื่อ login
+
+ Frontend: เพิ่มปุ่ม Save ใน Home.tsx (ไม่แตะส่วนอื่น)
+
+ หน้าใหม่ /saved แสดงโพสต์ที่บันทึกไว้
+
+ เพิ่มเมนู Saved ใน Navbar (ถ้าต้องการ)
+
+ถ้าติดตรงไหนของไฟล์ไหน บอกชื่อไฟล์+บรรทัดมาได้เลย เดี๋ยวผมแปะให้แบบ copy–paste ทั้งก้อนให้ตรงเวอร์ชันคุณครับ 💪

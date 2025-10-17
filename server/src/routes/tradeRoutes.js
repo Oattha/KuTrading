@@ -6,7 +6,7 @@ import {
   createTrade,
   updateTradeStatus,
   myTrades,
-  getTradeById
+  getTradeById, deleteTrade
 } from "../controllers/tradeController.js"
 
 const router = express.Router()
@@ -28,5 +28,8 @@ router.get("/:tradeId", authMiddleware, getTradeById)
 
 // ✅ อัปเดตสถานะ trade
 router.patch("/:tradeId/status", authMiddleware, updateTradeStatus)
+
+router.delete("/:tradeId", authMiddleware, deleteTrade)
+
 
 export default router
