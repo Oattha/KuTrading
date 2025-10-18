@@ -18,6 +18,8 @@ import Login from "@/pages/Login"
 import Register from "@/pages/Register"
 import UserLayout from "@/layouts/UserLayout"
 
+import OAuthSuccess from "@/pages/OAuthSuccess"
+
 import Home from "@/pages/user/Home"
 import Profile from "@/pages/user/Profile"
 import EditProfile from "@/pages/user/EditProfile"
@@ -60,6 +62,9 @@ export default function App() {
         {/* ===== User Auth ===== */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* ✅ เพิ่ม Route สำหรับ Google OAuth */}
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
 
         {/* ===== Protected User Pages ===== */}
         <Route

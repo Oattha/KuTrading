@@ -2,6 +2,7 @@ import prisma from '../config/prisma.js'
 import bcrypt from 'bcryptjs'
 import { signToken } from '../utils/jwt.js'
 import jwt from 'jsonwebtoken' 
+import passport from "../utils/passport.js"
 
 const signRefreshToken = (user) => {
   return jwt.sign(

@@ -245,12 +245,31 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
-          <p><FaIdBadge className="inline mr-2 text-indigo-500" /> <b>ID:</b> {profileUser.id}</p>
-          <p><FaUserTag className="inline mr-2 text-indigo-500" /> <b>Name:</b> {profileUser.name}</p>
-          <p><FaEnvelope className="inline mr-2 text-indigo-500" /> <b>Email:</b> {profileUser.email}</p>
-          <p><FaUserShield className="inline mr-2 text-indigo-500" /> <b>Role:</b> {profileUser.role}</p>
-        </div>
+<div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
+  <p>
+    <FaUserTag className="inline mr-2 text-indigo-500" />
+    <b>Name:</b> {profileUser.name}
+  </p>
+
+  {/* ✅ แสดงเฉพาะเจ้าของเท่านั้น */}
+  {user && user.id === profileUser.id && (
+    <>
+      <p>
+        <FaIdBadge className="inline mr-2 text-indigo-500" />
+        <b>ID:</b> {profileUser.id}
+      </p>
+      <p>
+        <FaEnvelope className="inline mr-2 text-indigo-500" />
+        <b>Email:</b> {profileUser.email}
+      </p>
+      <p>
+        <FaUserShield className="inline mr-2 text-indigo-500" />
+        <b>Role:</b> {profileUser.role}
+      </p>
+    </>
+  )}
+</div>
+
 
         {user && user.id === profileUser.id && (
           <button

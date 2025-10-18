@@ -77,6 +77,27 @@ export default function Register() {
           className="w-full p-2 border rounded"
         />
 
+{/* เส้นแบ่ง “หรือ” */}
+<div className="flex items-center my-3">
+  <div className="flex-grow border-t border-gray-300"></div>
+  <span className="mx-2 text-gray-500 text-sm">หรือ</span>
+  <div className="flex-grow border-t border-gray-300"></div>
+</div>
+
+{/* ปุ่มสมัครด้วย Google */}
+<button
+  onClick={() => (window.location.href = "http://localhost:5001/api/auth/google")}
+  type="button"
+  className="flex items-center justify-center gap-2 border border-gray-300 px-4 py-2 rounded-lg w-full hover:bg-gray-50 transition"
+>
+  <img
+    src="https://developers.google.com/identity/images/g-logo.png"
+    alt="Google"
+    className="w-5 h-5"
+  />
+  <span>สมัครด้วย Google</span>
+</button>
+
         <button
           type="submit"
           className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600"

@@ -1,6 +1,8 @@
 import express from 'express'
 import cors from 'cors'
-
+import dotenv from "dotenv"
+dotenv.config()
+import passport from './utils/passport.js'
 import authRoutes from './routes/authRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import postRoutes from './routes/postRoutes.js'
@@ -26,5 +28,7 @@ app.use('/api/trade-chat', tradeChatRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use("/api/admin", adminRoutes)
+
+app.use(passport.initialize())
 
 export default app

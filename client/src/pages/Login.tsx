@@ -69,6 +69,7 @@ export default function Login() {
           {error && <p className="text-red-500 mb-3">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/*
             <input
               type="email"
               value={email}
@@ -91,6 +92,20 @@ export default function Login() {
             >
               เข้าสู่ระบบ KuTrading
             </button>
+*/}
+            <button
+              onClick={() => window.location.href = "http://localhost:5001/api/auth/google"}
+              className="flex items-center justify-center gap-2 border border-gray-300 px-4 py-2 rounded-lg w-full hover:bg-gray-50 transition"
+            >
+              <img
+                src="https://developers.google.com/identity/images/g-logo.png"
+                alt="Google"
+                className="w-5 h-5"
+              />
+              <span>Sign in with Google</span>
+            </button>
+
+
           </form>
 
           {/* ปุ่มสมัคร */}
