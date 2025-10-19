@@ -7,33 +7,50 @@ export const upsertOneToOneConversation = async (req, res) => {
   try {
     const { otherUserId } = req.body
     if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' })
-    if (Number(otherUserId) === req.user.id) return res.status(400).json({ message: 'cannot chat with yourself' })
+    if (Number(otherUserId) === req.user.id)
+      return res.status(400).json({ message: 'cannot chat with yourself' })
 
+    // ✅ ค้นหาห้องที่เป็น private จริงๆ (ไม่รวม trade)
     const existing = await prisma.conversation.findFirst({
       where: {
+        type: "private",
         isGroup: false,
-        participants: { every: { userId: { in: [req.user.id, Number(otherUserId)] } } }
+        AND: [
+          { participants: { some: { userId: req.user.id } } },
+          { participants: { some: { userId: Number(otherUserId) } } },
+        ],
       },
-      include: { participants: true }
+      include: { participants: true },
     })
 
-    if (existing) return res.json(existing)
+    if (existing) {
+      console.log("🟢 Found existing private conversation:", existing.id)
+      return res.json(existing)
+    }
 
+    // ✅ ถ้าไม่เจอให้สร้างใหม่
     const conv = await prisma.conversation.create({
       data: {
+        type: "private", // ⬅️ สำคัญมาก
         isGroup: false,
         participants: {
-          create: [{ userId: req.user.id }, { userId: Number(otherUserId) }]
-        }
+          create: [
+            { userId: req.user.id },
+            { userId: Number(otherUserId) },
+          ],
+        },
       },
-      include: { participants: true }
+      include: { participants: true },
     })
 
+    console.log("🆕 Created new private conversation:", conv.id)
     return res.json(conv)
   } catch (e) {
+    console.error("❌ Error creating conversation:", e)
     return res.status(500).json({ message: 'Error creating conversation', error: e.message })
   }
 }
+
 
 // ===== ดึงห้องทั้งหมดที่ user เข้าร่วม + นับ unread =====
 export const myConversations = async (req, res) => {

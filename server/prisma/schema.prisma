@@ -57,6 +57,7 @@ enum NotificationType {
   trade
   review
   message
+  report 
 }
 
 enum ReportStatus {
@@ -262,9 +263,9 @@ model Message {
 
 model Trade {
   id            Int        @id @default(autoincrement())
-  buyer         User       @relation("TradesAsBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  buyer         User       @relation("TradesAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)   // ✅ แก้จาก Restrict → Cascade
   buyerId       Int
-  seller        User       @relation("TradesAsSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  seller        User       @relation("TradesAsSeller", fields: [sellerId], references: [id], onDelete: Cascade) // ✅ แก้จาก Restrict → Cascade
   sellerId      Int
   post          Post?      @relation(fields: [postId], references: [id], onDelete: SetNull)
   postId        Int?

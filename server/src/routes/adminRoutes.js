@@ -10,6 +10,7 @@ import {
   toggleBanUser,
   hideReview,
   resolveReport,
+  deleteUser
 } from "../controllers/adminController.js"
 
 import {
@@ -34,7 +35,8 @@ router.post("/kyc/:userId/reject", authMiddleware, requireAdmin, rejectUserKyc) 
 // ----- Users -----
 router.get("/users", authMiddleware, requireAdmin, listUsersAdmin)
 router.patch("/users/:userId/toggle-ban", authMiddleware, requireAdmin, toggleBanUser)
-
+// ✅ เพิ่มเส้นทางลบ user
+router.delete("/users/:userId", authMiddleware, requireAdmin, deleteUser)
 // ----- Moderation -----
 router.patch("/reviews/:reviewId/hide", authMiddleware, requireAdmin, hideReview)
 router.patch("/reports/:reportId/resolve", authMiddleware, requireAdmin, resolveReport)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import { FaStar, FaUser, FaEye } from "react-icons/fa"
+import { FaStar, FaEye } from "react-icons/fa"
+import { useNavigate } from "react-router-dom"
 
 interface User {
   id: number
@@ -20,12 +21,35 @@ interface Review {
   reviewer: { id: number; name: string; avatarUrl?: string }
 }
 
+interface Report {
+  id: number
+  reporter?: { email: string }
+  targetUser?: { email: string }
+  reason: string
+  status: string
+  createdAt?: string  
+}
+
+
 export default function Reports() {
   const [users, setUsers] = useState<User[]>([])
+  const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingReports, setLoadingReports] = useState(true)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [loadingReviews, setLoadingReviews] = useState(false)
+  // เพิ่ม state สำหรับแบ่งหน้ารีพอร์ต
+const [reportPage, setReportPage] = useState(1)
+const reportsPerPage = 5
+const totalReportPages = Math.ceil(reports.length / reportsPerPage)
+const indexOfLastReport = reportPage * reportsPerPage
+const indexOfFirstReport = indexOfLastReport - reportsPerPage
+const currentReports = reports.slice(indexOfFirstReport, indexOfLastReport)
+
+const navigate = useNavigate()
+
+
 
   // 📦 โหลดข้อมูลผู้ใช้ทั้งหมด
   useEffect(() => {
@@ -42,7 +66,25 @@ export default function Reports() {
     fetchUsers()
   }, [])
 
-  // 🔍 โหลดรีวิวเมื่อเลือก user
+  // 📦 โหลดรายการรีพอร์ตทั้งหมด
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const res = await api.get<Report[]>("/reports")
+        setReports(res.data)
+      } catch (err) {
+        console.error("Error fetching reports:", err)
+      } finally {
+        setLoadingReports(false)
+      }
+    }
+    fetchReports()
+  }, [])
+
+  const handleReportPage = (page: number) => {
+  if (page >= 1 && page <= totalReportPages) setReportPage(page)
+}
+  // 🔍 โหลดรีวิวของ user
   const handleViewReviews = async (user: User) => {
     setSelectedUser(user)
     setLoadingReviews(true)
@@ -56,7 +98,7 @@ export default function Reports() {
     }
   }
 
-  // 🧩 ฟังก์ชันช่วยแบ่งหมวดคะแนน
+  // 🧩 จัดหมวดคะแนน
   const categorizeUsers = () => {
     const good = users.filter((u) => (u.ratingAverage ?? 0) > 3.5)
     const mid = users.filter(
@@ -69,35 +111,156 @@ export default function Reports() {
   const { good, mid, low } = categorizeUsers()
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">📑 รายงานพฤติกรรมผู้ใช้</h1>
+    <div className="p-6 max-w-7xl mx-auto space-y-12">
+      <h1 className="text-3xl font-bold mb-6">📑 รายงานพฤติกรรมและรีพอร์ตผู้ใช้</h1>
 
-      {loading ? (
-        <p className="text-gray-500">⏳ กำลังโหลด...</p>
-      ) : (
-        <div className="space-y-10">
-          {/* 🟢 ความประพฤติดี */}
-          <Section
-            title="🟢 ความประพฤติดี (คะแนน > 3.5)"
-            users={good}
-            onView={handleViewReviews}
-          />
+      {/* 🔹 ส่วนรีพอร์ตที่ผู้ใช้ส่งเข้ามา */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-4 text-rose-600">
+          🚨 รายการรีพอร์ตที่ผู้ใช้ส่งเข้ามา
+        </h2>
+        {loadingReports ? (
+          <p className="text-gray-500">⏳ กำลังโหลด...</p>
+        ) : reports.length === 0 ? (
+          <p className="text-gray-400">ยังไม่มีรีพอร์ต</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse bg-white rounded-xl shadow-md">
+              <thead className="bg-rose-100 text-gray-700">
+                <tr>
+                  <th className="py-2 px-4 text-left">Reporter</th>
+                  <th className="py-2 px-4 text-left">Target User</th>
+                  <th className="py-2 px-4 text-left">Reason</th>
+                  <th className="py-2 px-4 text-left">Date</th> 
+                  <th className="py-2 px-4 text-center">Status</th>
+                </tr>
+              </thead>
+<tbody>
+  {currentReports.map((r) => (
+    <tr key={r.id} className="border-b hover:bg-gray-50">
+      <td className="py-2 px-4">{r.reporter?.email || "—"}</td>
+      <td className="py-2 px-4">{r.targetUser?.email || "—"}</td>
+      <td className="py-2 px-4">{r.reason}</td>
 
-          {/* 🟡 เริ่มไม่ดี */}
-          <Section
-            title="🟡 เริ่มไม่ดี (2.5 – 3.5)"
-            users={mid}
-            onView={handleViewReviews}
-          />
+      {/* ✅ เพิ่มตรงนี้ */}
+      <td className="py-2 px-4 text-gray-500">
+        {r.createdAt ? new Date(r.createdAt).toLocaleString("th-TH") : "—"}
+      </td>
 
-          {/* 🔴 ต่ำกว่าเกณฑ์ */}
-          <Section
-            title="🔴 ความประพฤติไม่ดี (ต่ำกว่า 2.5)"
-            users={low}
-            onView={handleViewReviews}
-          />
-        </div>
-      )}
+<td className="text-center">
+  <div className="flex flex-col items-center gap-2">
+    {/* ปุ่มส่งอีเมล — แสดงตลอด */}
+    <button
+      onClick={() => navigate(`/admin/reports/${r.id}/notify`)}
+      className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-all text-sm"
+    >
+      ✉️ ส่งอีเมลเตือน
+    </button>
+
+    {/* สถานะเคส */}
+    {r.status === "open" ? (
+      <button
+        onClick={async () => {
+          if (!confirm("ปิดเคสนี้ใช่ไหม?")) return
+          await api.put(`/reports/${r.id}/status`, { status: "resolved" })
+          alert("✅ ปิดเคสแล้ว")
+          window.location.reload()
+        }}
+        className="px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-all text-sm"
+      >
+        ปิดเคส
+      </button>
+    ) : (
+      <span className="px-3 py-1.5 rounded-full text-sm bg-green-100 text-green-800 border border-green-300">
+        ✅ ปิดแล้ว
+      </span>
+    )}
+  </div>
+</td>
+
+
+    </tr>
+  ))}
+</tbody>
+
+
+            </table>
+          </div>
+        )}
+
+        {/* 🔹 Pagination ของรีพอร์ต */}
+{totalReportPages > 1 && (
+  <div className="flex justify-center items-center gap-2 mt-4">
+    <button
+      onClick={() => handleReportPage(reportPage - 1)}
+      disabled={reportPage === 1}
+      className={`px-3 py-1 rounded ${
+        reportPage === 1
+          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+      }`}
+    >
+      ⬅️ ก่อนหน้า
+    </button>
+
+    {[...Array(totalReportPages)].map((_, i) => (
+      <button
+        key={i}
+        onClick={() => handleReportPage(i + 1)}
+        className={`px-3 py-1 rounded ${
+          reportPage === i + 1
+            ? "bg-rose-500 text-white"
+            : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+        }`}
+      >
+        {i + 1}
+      </button>
+    ))}
+
+    <button
+      onClick={() => handleReportPage(reportPage + 1)}
+      disabled={reportPage === totalReportPages}
+      className={`px-3 py-1 rounded ${
+        reportPage === totalReportPages
+          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+      }`}
+    >
+      ถัดไป ➡️
+    </button>
+  </div>
+)}
+
+      </section>
+
+      {/* 🔹 รายงานพฤติกรรมผู้ใช้ (คะแนนรีวิว) */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-4 text-indigo-600">
+          ⭐ พฤติกรรมผู้ใช้จากคะแนนรีวิว
+        </h2>
+
+        {loading ? (
+          <p className="text-gray-500">⏳ กำลังโหลด...</p>
+        ) : (
+          <div className="space-y-10">
+            <Section
+              title="🟢 ความประพฤติดี (คะแนน > 3.5)"
+              users={good}
+              onView={handleViewReviews}
+            />
+            <Section
+              title="🟡 เริ่มไม่ดี (2.5 – 3.5)"
+              users={mid}
+              onView={handleViewReviews}
+            />
+            <Section
+              title="🔴 ความประพฤติไม่ดี (ต่ำกว่า 2.5)"
+              users={low}
+              onView={handleViewReviews}
+            />
+          </div>
+        )}
+      </section>
 
       {/* 🔹 Modal รีวิว */}
       {selectedUser && (
@@ -160,7 +323,7 @@ export default function Reports() {
   )
 }
 
-// 🔹 Component สำหรับแต่ละ Section (เพิ่ม Pagination)
+// 🔹 Component แสดงตารางคะแนน
 function Section({
   title,
   users,
@@ -229,7 +392,6 @@ function Section({
             </table>
           </div>
 
-          {/* 🔹 Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex justify-center items-center gap-2 mt-4">
               <button

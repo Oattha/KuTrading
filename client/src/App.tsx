@@ -9,6 +9,7 @@ import Dashboard from "@/pages/admin/Dashboard"
 import Users from "@/pages/admin/Users"
 import Kyc from "@/pages/admin/Kyc"
 import Reports from "@/pages/admin/Reports"
+import SendEmail from "@/pages/admin/SendEmail"
 import Reviews from "@/pages/admin/Reviews"
 import Logs from "@/pages/admin/Logs"
 import AdminLayout from "@/pages/admin/AdminLayout"
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="users" element={<Users />} />
           <Route path="kyc" element={<Kyc />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="reports/:id/notify" element={<SendEmail />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="logs" element={<Logs />} />
         </Route>

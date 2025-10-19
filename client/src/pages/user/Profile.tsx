@@ -3,6 +3,7 @@ import { useAuth } from "@/store/auth"
 import { api } from "@/lib/api"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { Post, PagedPostsResponse } from "@/types/post"
+
 import {
   FaUser,
   FaSignOutAlt,
@@ -178,6 +179,20 @@ export default function Profile() {
     }
   }
 
+  const handleReportUser = async (reason: string) => {
+  try {
+    const res = await api.post("/reports/user", {
+      targetUserId: profileUser.id,
+      reason,
+    })
+    alert("✅ ส่งรีพอร์ตสำเร็จ")
+  } catch (err) {
+    console.error("Error reporting user:", err)
+    alert("❌ เกิดข้อผิดพลาดในการรีพอร์ต")
+  }
+}
+
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-12">
       {/* 🧍‍♂️ ส่วนโปรไฟล์ */}
@@ -215,14 +230,29 @@ export default function Profile() {
               )}
             </div>
 
-            {user && user.id !== profileUser.id && (
-              <button
-                onClick={handleStartChat}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 shadow-md transition"
-              >
-                <FaComments /> เริ่มแชทส่วนตัว
-              </button>
-            )}
+{user && user.id !== profileUser.id && (
+  <>
+    <button
+      onClick={handleStartChat}
+      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 shadow-md transition"
+    >
+      <FaComments /> เริ่มแชทส่วนตัว
+    </button>
+
+    {/* 🔸 ปุ่มรีพอร์ต */}
+    <button
+      onClick={() => {
+        const reason = prompt("กรุณากรอกเหตุผลที่ต้องการรีพอร์ตผู้ใช้นี้:")
+        if (!reason) return
+        handleReportUser(reason)
+      }}
+      className="w-full sm:w-auto mt-3 flex items-center justify-center gap-2 px-5 py-2 bg-rose-500 text-white font-medium rounded-full hover:bg-rose-600 shadow-md transition"
+    >
+      🚨 รีพอร์ตผู้ใช้
+    </button>
+  </>
+)}
+
 
             {user && user.id === profileUser.id && (
               <div>

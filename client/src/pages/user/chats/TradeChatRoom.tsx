@@ -229,6 +229,25 @@ export default function TradeChatRoom() {
 
         {messages.length === 0 && <p className="text-gray-500 text-center">ยังไม่มีข้อความ</p>}
         <div ref={messagesEndRef} />
+
+                  {/* จุดอ้างอิงเลื่อนลง */}
+  <div ref={messagesEndRef} />
+
+  {/* ✅ ปุ่มลูกศรเลื่อนลง */}
+{showScrollBtn && (
+  <button
+    onClick={scrollToBottom}
+    className="fixed bottom-24 right-5 z-50
+               p-3 rounded-full
+               bg-white/30 border border-white/40
+               backdrop-blur-md
+               text-indigo-600 shadow-lg
+               hover:bg-white/40 hover:scale-110
+               transition-all duration-300"
+  >
+    <ArrowDownCircle size={26} />
+  </button>
+  )}
       </div>
 
       {/* ✅ Preview ก่อนส่ง */}

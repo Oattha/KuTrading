@@ -63,6 +63,23 @@ export default function Users() {
     if (currentPage < totalPages) setCurrentPage((p) => p + 1)
   }
 
+const deleteUser = async (id: number) => {
+  if (!token) return
+  if (!confirm("คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้? การลบไม่สามารถย้อนกลับได้")) return
+
+  try {
+    await axios.delete(`/api/admin/users/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    alert("ลบผู้ใช้สำเร็จ")
+    setUsers((prev) => prev.filter((u) => u.id !== id))
+  } catch (err) {
+    console.error("Error deleting user:", err)
+    alert("ไม่สามารถลบผู้ใช้ได้")
+  }
+}
+
   return (
     <div className="p-6">
       <h2 className="text-xl font-bold mb-4">Users</h2>
@@ -105,6 +122,9 @@ export default function Users() {
                     >
                       {u.status === "banned" ? "Unban" : "Ban"}
                     </Button>
+                      <Button variant="secondary" onClick={() => deleteUser(u.id)}>
+    🗑️ Delete
+  </Button>
                   </td>
                 </tr>
               ))}

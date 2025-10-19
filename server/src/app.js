@@ -12,7 +12,7 @@ import tradeChatRoutes from './routes/tradeChatRoutes.js' // ✅ trade chat
 import reviewRoutes from './routes/reviewRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import adminRoutes from "./routes/adminRoutes.js"
-
+import reportRoutes from "./routes/reportRoutes.js"
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -28,7 +28,7 @@ app.use('/api/trade-chat', tradeChatRoutes)
 app.use('/api/reviews', reviewRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use("/api/admin", adminRoutes)
-
+app.use("/api/reports", reportRoutes)
 app.use(passport.initialize())
 
 export default app

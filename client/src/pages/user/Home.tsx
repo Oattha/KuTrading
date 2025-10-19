@@ -91,7 +91,7 @@ export default function Home() {
       {/* ฟอร์มโพสต์ใหม่ */}
       <div className="mt-6 bg-white border rounded-2xl shadow-sm p-4">
         <textarea
-          placeholder="คุณคิดอะไรอยู่..."
+          placeholder="คุณคิดจะแลกอะไรอยู่..."
           value={newContent}
           onChange={(e) => setNewContent(e.target.value)}
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-indigo-300"

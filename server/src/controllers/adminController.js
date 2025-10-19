@@ -178,3 +178,57 @@ export const resolveReport = async (req, res) => {
     return res.status(500).json({ message: "Error resolving report" })
   }
 }
+
+export const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+      include: {
+        documents: true,
+        posts: true,
+        tradesAsBuyer: true,
+        tradesAsSeller: true,
+      },
+    })
+
+    if (!user) return res.status(404).json({ message: "User not found" })
+
+    // ✅ ลบ KYC, Post, Trade
+    await prisma.userDocument.deleteMany({ where: { userId: user.id } })
+    await prisma.post.deleteMany({ where: { authorId: user.id } })
+    await prisma.trade.deleteMany({
+      where: { OR: [{ buyerId: user.id }, { sellerId: user.id }] },
+    })
+
+    // ✅ log ก่อนลบ
+    await prisma.adminActionLog.create({
+      data: {
+        adminId: req.user.id,
+        action: "delete_user",
+        targetUserId: user.id,
+        details: { email: user.email },
+      },
+    })
+
+    // ✅ แล้วค่อยลบ user
+    await prisma.user.delete({ where: { id: user.id } })
+
+    // ✅ ส่งอีเมลแจ้ง (optional)
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to: user.email,
+        subject: "Account Deleted ❌",
+        text: `สวัสดี ${user.name || "ผู้ใช้"}, บัญชีของคุณถูกลบออกโดยผู้ดูแลระบบ`,
+      })
+    } catch (e) {
+      console.warn("⚠️ Failed to send deletion email:", e.message)
+    }
+
+    return res.json({ message: `User ${user.email} deleted successfully` })
+  } catch (e) {
+    console.error("❌ deleteUser error:", e)
+    return res.status(500).json({ message: "Error deleting user", error: e.message })
+  }
+}
