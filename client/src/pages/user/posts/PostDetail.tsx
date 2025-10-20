@@ -43,7 +43,7 @@ export interface Post {
   videos?: PostVideo[]
   comments?: Comment[]
   likes?: Like[]
-  tradeStatus?: "requested" | "pending" | "accepted" | "completed" | "canceled" | null
+  tradeStatus?: "available" | "requested" | "pending" | "accepted" | "completed" | "canceled" | null
 }
 
 interface Props {
@@ -260,21 +260,27 @@ export default function PostDetail({ post, onRefresh }: Props) {
   <FaShareAlt className="inline-block mr-1" /> แชร์
 </button>
 
-      {/* 🔄 เทรด */}
-      <div className="mt-2">
-        {post.tradeStatus ? (
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow bg-gray-300 text-gray-700">
-            <FaExchangeAlt /> {post.tradeStatus}
-          </span>
-        ) : (
-          <Link
-            to={`/trades/create?postId=${post.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium shadow hover:bg-green-600 transition"
-          >
-            <FaExchangeAlt /> สร้างเทรด
-          </Link>
-        )}
-      </div>
+{/* 🔄 เทรด */}
+<div className="mt-2">
+  {
+  post.tradeStatus === "requested" ||
+  post.tradeStatus === "pending" ||
+  post.tradeStatus === "accepted" ? (
+    // ✅ ถ้ามีสถานะพวกนี้ → แสดงเฉย ๆ (ห้ามสร้างซ้ำ)
+    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow bg-gray-300 text-gray-700">
+      <FaExchangeAlt /> {post.tradeStatus}
+    </span>
+  ) : (
+    // ✅ ถ้าเป็น available หรือยังไม่มี tradeStatus → ให้สร้างเทรดได้
+    <Link
+      to={`/trades/create?postId=${post.id}`}
+      className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium shadow hover:bg-green-600 transition"
+    >
+      <FaExchangeAlt /> ขอเทรด
+    </Link>
+  )}
+</div>
+
 
       {/* 💬 ความคิดเห็น (เพิ่มปุ่มแก้ไข/ลบ) */}
       <div>

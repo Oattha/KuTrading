@@ -5,7 +5,7 @@ import {
   getProfile,
   updateProfile,
   listUsers,
-  uploadProfilePicture,getUserById
+  uploadProfilePicture,getUserById, setPassword, verifyPassword
 } from "../controllers/userController.js"
 import { checkUserStatus } from "../middlewares/checkUserStatus.js"
 import { uploadKyc } from "../controllers/kycController.js"   // ⬅️ เพิ่มตรงนี้
@@ -17,7 +17,10 @@ router.put("/me", authMiddleware, updateProfile)
 router.get("/", listUsers)
 router.post("/profile-picture", authMiddleware, upload.single("file"), uploadProfilePicture)
 router.get("/:id", getUserById)
+// ตั้งรหัสผ่าน (สำหรับผู้ใช้ที่ลงทะเบียนผ่าน OAuth)
+router.post("/set-password", authMiddleware, setPassword);
 
+router.post("/verify-password", authMiddleware, verifyPassword)
 // อัปโหลดเอกสาร KYC
 router.post(
   "/kyc",

@@ -17,6 +17,8 @@ export interface User {
   status: "pending" | "active" | "banned"
   documents?: UserDocument[]
   avatarUrl?: string       // ✅ เพิ่มตรงนี้
+  password?: string | null  // รหัสผ่านอาจเป็น null สำหรับผู้ใช้ที่ลงทะเบียนผ่าน OAuth
+  passwordSet?: boolean
 }
 
 interface AuthState {

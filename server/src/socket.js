@@ -6,9 +6,9 @@ let io
 export function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: "http://localhost:5173",  // ✅ frontend
+      origin: "http://localhost:5173", // ✅ frontend
       methods: ["GET", "POST"],
-      credentials: true
+      credentials: true,
     },
   })
 
@@ -23,15 +23,17 @@ export function initSocket(server) {
     }
 
     // ✅ join ห้อง notification (แบบ register event)
-socket.on("register", ({ userId }) => {
-  if (userId) {
-    const room = `user_${userId}`
-    if (!socket.rooms.has(room)) {   // ✅ กัน join ซ้ำ
-      socket.join(room)
-      console.log(`🔔 User ${userId} joined room via register()`)
-    }
-  }
-})
+    socket.on("register", ({ userId }) => {
+      if (userId) {
+        const room = `user_${userId}`
+        if (!socket.rooms.has(room)) {
+          // ✅ กัน join ซ้ำ
+          socket.join(room)
+          console.log(`🔔 User ${userId} joined room via register()`)
+        }
+      }
+    })
+
     // ✅ join ห้องแชท
     socket.on("joinRoom", ({ conversationId }) => {
       socket.join(`conv_${conversationId}`)
@@ -74,8 +76,23 @@ socket.on("register", ({ userId }) => {
   return io
 }
 
-// ฟังก์ชันสำหรับ emit event จาก controller
+// ✅ ฟังก์ชันสำหรับ emit event จาก controller
 export function getIO() {
-  if (!io) throw new Error("Socket.io not initialized!")
+  if (!io) {
+    // 🧪 mock สำหรับโหมดเทสต์ (Jest)
+    if (process.env.NODE_ENV === "test") {
+      return {
+        to: () => ({
+          emit: () => {
+            // mock เงียบ ๆ เพื่อไม่ให้ error ในเทสต์
+          },
+        }),
+      }
+    }
+
+    // ❌ โหมดปกติถ้าไม่ได้ initSocket ให้แจ้งเตือนจริง
+    throw new Error("Socket.io not initialized!")
+  }
+
   return io
 }

@@ -39,6 +39,7 @@ enum MessageType {
 }
 
 enum TradeStatus {
+  available
   requested
   pending
   accepted
@@ -276,7 +277,7 @@ model Trade {
 
   location      String
   scheduledAt   DateTime?
-  status        TradeStatus @default(requested)
+  status        TradeStatus @default(available)
 
   reviews       Review[]
   createdAt     DateTime @default(now())

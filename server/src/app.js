@@ -13,6 +13,9 @@ import reviewRoutes from './routes/reviewRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import adminRoutes from "./routes/adminRoutes.js"
 import reportRoutes from "./routes/reportRoutes.js"
+
+//test sytem
+import testAuthRouter from "./routes/testAuth.js"
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -30,5 +33,9 @@ app.use('/api/notifications', notificationRoutes)
 app.use("/api/admin", adminRoutes)
 app.use("/api/reports", reportRoutes)
 app.use(passport.initialize())
+// สำหรับทดสอบในสภาพแวดล้อมทดสอบเท่านั้น
+if (process.env.NODE_ENV === "test") {
+  app.use("/api/auth", testAuthRouter)
+}
 
 export default app

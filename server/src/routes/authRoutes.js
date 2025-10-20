@@ -1,5 +1,5 @@
 import express from 'express'
-import { register, login , refresh  } from '../controllers/authController.js'
+import { register, login , refresh , testLogin  } from '../controllers/authController.js'
 import passport from "../utils/passport.js"
 const router = express.Router()
 
@@ -36,6 +36,8 @@ router.get(
     )
   }
 )
+
+router.post("/test-login", testLogin);
 
 
 export default router

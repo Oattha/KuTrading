@@ -7,7 +7,7 @@ import { useAuth } from "@/store/auth"
 // ✅ import icons
 import { FaStore, FaHandshake, FaUser, FaMapMarkerAlt, FaCalendarAlt, FaComments, FaStar, FaTrash } from "react-icons/fa"
 
-type TradeStatus = "requested" | "pending" | "accepted" | "completed" | "canceled"
+type TradeStatus = "available" |"requested" | "pending" | "accepted" | "completed" | "canceled"
 
 interface Trade {
   id: number
@@ -27,6 +27,7 @@ interface Trade {
 }
 
 const statusLabel: Record<TradeStatus, string> = {
+  available: "พร้อมแลกเปลี่ยน",
   requested: "รอดำเนินการ",
   pending: "กำลังนัดหมาย",
   accepted: "ยืนยันแล้ว",
@@ -34,7 +35,7 @@ const statusLabel: Record<TradeStatus, string> = {
   canceled: "ยกเลิก",
 }
 
-const allowedStatuses: TradeStatus[] = ["requested", "pending", "accepted", "completed", "canceled"]
+const allowedStatuses: TradeStatus[] = ["available","requested", "pending", "accepted", "completed", "canceled"]
 
 export default function MyTrades() {
   const { user } = useAuth()
@@ -144,6 +145,7 @@ export default function MyTrades() {
       <div className="flex flex-wrap gap-2 mb-4">
         {[ 
           { key: "all", label: "ทั้งหมด" },
+          { key: "available", label: "พร้อมแลกเปลี่ยน" },
           { key: "requested", label: "รอดำเนินการ" },
           { key: "pending", label: "กำลังนัดหมาย" },
           { key: "accepted", label: "ยืนยันแล้ว" },

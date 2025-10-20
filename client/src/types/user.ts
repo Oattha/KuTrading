@@ -19,5 +19,7 @@ export interface User {
   status: UserStatus   // ✅ ตรงกับ prisma แล้ว
   isEmailVerified: boolean
   documents?: UserDocument[]
+  password?: string | null  // รหัสผ่านอาจเป็น null สำหรับผู้ใช้ที่ลงทะเบียนผ่าน OAuth
+  
 }
 

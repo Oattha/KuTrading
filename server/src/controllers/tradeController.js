@@ -5,47 +5,60 @@ import { getIO } from "../socket.js"
 
 // === สร้างเทรดใหม่ ===
 // === สร้างเทรดใหม่ ===
-// === สร้างเทรดใหม่ ===
 export const createTrade = async (req, res) => {
   try {
-    const { postId, location, scheduledAt, offerText } = req.body
+    const { postId, location, scheduledAt, offerText } = req.body;
 
     if (!postId || !location) {
-      return res.status(400).json({ message: "postId & location required" })
+      return res.status(400).json({ message: "postId & location required" });
     }
 
     // ✅ ดึง sellerId จาก owner ของโพสต์
     const post = await prisma.post.findUnique({
       where: { id: Number(postId) },
       select: { authorId: true },
-    })
+    });
 
     if (!post) {
-      return res.status(404).json({ message: "Post not found" })
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // ✅ ตรวจสอบว่าผู้ใช้เคยขอเทรดโพสต์นี้แล้วหรือยัง (ไม่ว่าผลจะเป็นยังไง)
+    const existingTrade = await prisma.trade.findFirst({
+      where: {
+        buyerId: req.user.id,
+        postId: Number(postId),
+      },
+    });
+
+    if (existingTrade) {
+      return res
+        .status(400)
+        .json({ message: "คุณได้ส่งคำขอเทรดสำหรับโพสต์นี้ไปแล้ว (ไม่สามารถขอซ้ำได้)" });
     }
 
     // ✅ อัปโหลดรูปไป Cloudinary ถ้ามีไฟล์
-    let offerImageUrl = null
+    let offerImageUrl = null;
     if (req.file) {
       try {
         const result = await cloudinary.uploader.upload(req.file.path, {
           folder: "marketplace/trades",
-        })
-        offerImageUrl = result.secure_url
-        if (req.file.path) await fs.unlink(req.file.path).catch(() => { })
+        });
+        offerImageUrl = result.secure_url;
+        if (req.file.path) await fs.unlink(req.file.path).catch(() => {});
       } catch (err) {
-        console.error("Cloudinary upload error:", err)
+        console.error("Cloudinary upload error:", err);
       }
     }
 
     // ✅ ตรวจสอบวันที่
-    let parsedDate = null
+    let parsedDate = null;
     if (scheduledAt) {
-      const ts = Date.parse(scheduledAt)
-      if (!isNaN(ts)) parsedDate = new Date(ts)
+      const ts = Date.parse(scheduledAt);
+      if (!isNaN(ts)) parsedDate = new Date(ts);
     }
 
-    // ✅ สร้าง trade
+    // ✅ สร้าง trade ใหม่
     const trade = await prisma.trade.create({
       data: {
         buyerId: req.user.id,
@@ -53,7 +66,7 @@ export const createTrade = async (req, res) => {
         postId: Number(postId),
         location,
         scheduledAt: parsedDate,
-        status: "requested",
+        status: "available",
         offerText: offerText || null,
         offerImageUrl,
       },
@@ -62,25 +75,34 @@ export const createTrade = async (req, res) => {
         buyer: { select: { id: true, name: true, avatarUrl: true } },
         seller: { select: { id: true, name: true, avatarUrl: true } },
       },
-    })
+    });
 
-    // ✅ หา/สร้าง conversation one-to-one
-    // ✅ สร้าง conversation ใหม่สำหรับ trade โดยเฉพาะ
-    const conversation = await prisma.conversation.create({
-      data: {
-        type: "trade",
-        tradeId: trade.id,
-        isGroup: false,
-        participants: {
-          create: [
-            { userId: req.user.id },
-            { userId: post.authorId },
-          ],
-        },
-      },
-    })
+    // ✅ ตรวจสอบว่ามีห้องสนทนา one-to-one ระหว่าง buyer/seller อยู่แล้วไหม
+// ✅ สร้าง conversation ใหม่สำหรับ trade นี้เท่านั้น (unique ต่อ tradeId)
+let conversation = await prisma.conversation.findFirst({
+  where: { tradeId: trade.id },
+})
 
-    // ✅ แจ้งเตือนผู้ขาย
+if (!conversation) {
+  conversation = await prisma.conversation.create({
+    data: {
+      type: "trade",
+      tradeId: trade.id,
+      isGroup: false,
+    },
+  })
+
+  // เพิ่ม participants แยกทีหลัง เพื่อหลีกเลี่ยง unique constraint ซ้ำ
+  await prisma.conversationParticipant.createMany({
+    data: [
+      { conversationId: conversation.id, userId: req.user.id },
+      { conversationId: conversation.id, userId: post.authorId },
+    ],
+    skipDuplicates: true, // ✅ ป้องกัน error P2002
+  })
+}
+
+
     // ✅ แจ้งเตือนผู้ขาย
     const noti = await prisma.notification.create({
       data: {
@@ -90,41 +112,55 @@ export const createTrade = async (req, res) => {
         body: `ผู้ใช้ #${req.user.id} ขอแลกกับโพสต์ #${postId}`,
         tradeId: trade.id,
       },
-    })
+    });
 
     // 🔔 realtime → ส่งไปยังผู้ขาย
-    getIO().to(`user_${post.authorId}`).emit("notification:new", noti)
+    getIO().to(`user_${post.authorId}`).emit("notification:new", noti);
 
-
-    return res.json({ trade, conversationId: conversation.id })
+    return res.status(201).json({ trade, conversationId: conversation.id });
   } catch (e) {
-    console.error("Error creating trade:", e)
-    return res.status(500).json({ message: "Error creating trade", error: e.message })
+    console.error("Error creating trade:", e);
+    return res.status(500).json({ message: "Error creating trade", error: e.message });
   }
-}
+};
 
 
 
 // === อัปเดตสถานะเทรด ===
 export const updateTradeStatus = async (req, res) => {
   try {
-    const { tradeId } = req.params
-    const { status } = req.body
-    const allowed = ["pending", "accepted", "completed", "canceled"]
+    const { tradeId } = req.params;
+    const { status } = req.body;
 
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ message: "invalid status" })
+    const id = Number(tradeId);
+    if (!id) return res.status(400).json({ message: "Missing tradeId" });
+
+    const trade = await prisma.trade.findUnique({ where: { id } });
+    if (!trade) return res.status(404).json({ message: "Trade not found" });
+
+    // ✅ ตรวจสอบสิทธิ์
+    if (trade.sellerId !== req.user.id) {
+      return res.status(403).json({ message: "You are not the owner of this trade" });
     }
 
     const updated = await prisma.trade.update({
-      where: { id: Number(tradeId) },
+      where: { id },
       data: { status },
-      include: {
-        post: { select: { id: true, content: true } },
-        buyer: { select: { id: true, name: true, avatarUrl: true } },
-        seller: { select: { id: true, name: true, avatarUrl: true } },
-      },
-    })
+    });
+
+    return res.status(200).json({ message: "Trade status updated", trade: updated });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: "Error updating trade status" });
+  }
+};
+
+
+// === อัปเดตสถานะเทรด พร้อมแจ้งเตือน ===
+export const updateTradeStatusWithNotification = async (req, res) => {
+  try {
+    const { tradeId } = req.params
+    const { status } = req.body  // available | requested | pending | accepted | completed | canceled
 
     // ✅ สร้าง notification ใน DB
     const notis = await prisma.notification.createMany({

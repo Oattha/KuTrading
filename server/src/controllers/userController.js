@@ -1,6 +1,8 @@
 import prisma from '../config/prisma.js'
+import bcrypt from "bcryptjs"
 
 // ✅ ดึงโปรไฟล์ตัวเอง
+// src/controllers/userController.js
 export const getProfile = async (req, res) => {
   try {
     const me = await prisma.user.findUnique({
@@ -14,18 +16,27 @@ export const getProfile = async (req, res) => {
           },
         },
         reviewsReceived: true,
-        documents: true,   // ✅ เพิ่ม include KYC documents
+        documents: true, // ✅ include KYC documents
       },
     })
 
     if (!me) {
-      return res.status(404).json({ message: 'User not found' })
+      return res.status(404).json({ message: "User not found" })
     }
 
-    return res.json(me)
+    // ✅ เพิ่มฟิลด์ passwordSet เพื่อให้ front-end รู้ว่าผู้ใช้มีรหัสผ่านหรือไม่
+    const userSafe = {
+      ...me,
+      passwordSet: !!me.password, // true ถ้ามีรหัสผ่านในฐานข้อมูล
+    }
+
+    // ❌ ไม่ส่ง password จริงกลับไป (เพื่อความปลอดภัย)
+    delete userSafe.password
+
+    return res.json(userSafe)
   } catch (err) {
-    console.error(err)
-    return res.status(500).json({ message: 'Error getting profile' })
+    console.error("Error in getProfile:", err)
+    return res.status(500).json({ message: "Error getting profile" })
   }
 }
 
@@ -111,3 +122,66 @@ export const getUserById = async (req, res) => {
   }
 }
 
+// ✅ ตั้งรหัสผ่าน (เฉพาะผู้ที่ login อยู่)
+export const setPassword = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { oldPassword, password } = req.body
+
+    if (!password) {
+      return res.status(400).json({ message: "กรุณากรอกรหัสผ่านใหม่" })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" })
+
+    // 🔐 ถ้ามี password อยู่แล้ว → ต้องตรวจสอบรหัสเก่า
+    if (user.password) {
+      if (!oldPassword) {
+        return res.status(400).json({ message: "กรุณากรอกรหัสผ่านเดิมก่อน" })
+      }
+
+      const isMatch = await bcrypt.compare(oldPassword, user.password)
+      if (!isMatch) {
+        return res.status(401).json({ message: "รหัสผ่านเดิมไม่ถูกต้อง" })
+      }
+    }
+
+    const hashed = await bcrypt.hash(password, 10)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    })
+
+    return res.json({
+      message: user.password ? "เปลี่ยนรหัสผ่านสำเร็จ" : "ตั้งรหัสผ่านสำเร็จ",
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการตั้งรหัสผ่าน" })
+  }
+}
+
+export const verifyPassword = async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { oldPassword } = req.body
+
+    if (!oldPassword)
+      return res.status(400).json({ message: "กรุณากรอกรหัสผ่านเดิม" })
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" })
+    if (!user.password)
+      return res.status(400).json({ message: "บัญชียังไม่มีรหัสผ่าน" })
+
+    const match = await bcrypt.compare(oldPassword, user.password)
+    if (!match)
+      return res.status(401).json({ message: "รหัสผ่านเดิมไม่ถูกต้อง" })
+
+    return res.json({ message: "รหัสผ่านถูกต้อง" })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการตรวจสอบรหัสผ่าน" })
+  }
+}

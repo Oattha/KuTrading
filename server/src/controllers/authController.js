@@ -32,15 +32,20 @@ export const register = async (req, res) => {
     })
 
     const token = signToken(user)
-    const refreshToken = signRefreshToken(user)  // ✅ generate refreshToken
+    const refreshToken = signRefreshToken(user)
 
+    // ✅ เพิ่ม passwordSet ลงใน response
     const { password: _, ...userSafe } = user
+    const userWithFlag = {
+      ...userSafe,
+      passwordSet: !!user.password, // true ถ้ามีรหัสในฐานข้อมูล
+    }
 
     return res.json({
       message: 'User registered',
       token,
-      refreshToken,   // ✅ ไม่เป็น undefined แล้ว
-      user: userSafe,
+      refreshToken,
+      user: userWithFlag,
     })
   } catch (err) {
     return res.status(500).json({ message: 'Error registering', error: err.message })
@@ -66,7 +71,6 @@ export const login = async (req, res) => {
     })
 
     if (!user) return res.status(404).json({ message: 'User not found' })
-
     if (user.status === 'banned') {
       return res.status(403).json({ message: 'บัญชีนี้ถูกแบน กรุณาติดต่อผู้ดูแลระบบ' })
     }
@@ -75,20 +79,26 @@ export const login = async (req, res) => {
     if (!valid) return res.status(401).json({ message: 'Invalid credentials' })
 
     const token = signToken(user)
-    const refreshToken = signRefreshToken(user)  // ✅ generate refreshToken
+    const refreshToken = signRefreshToken(user)
 
+    // ✅ เพิ่ม passwordSet ใน response ด้วย
     const { password: _, ...userSafe } = user
+    const userWithFlag = {
+      ...userSafe,
+      passwordSet: !!user.password, // ถ้ามี password จริง
+    }
 
     return res.json({
       message: 'Login successful',
       token,
-      refreshToken,   // ✅ ไม่เป็น undefined แล้ว
-      user: userSafe,
+      refreshToken,
+      user: userWithFlag,
     })
   } catch (err) {
     return res.status(500).json({ message: 'Error logging in', error: err.message })
   }
 }
+
 
 
 // ✅ ฟังก์ชัน refresh token
@@ -127,3 +137,21 @@ export const refresh = async (req, res) => {
   }
 }
 
+// src/controllers/authController.js
+export const testLogin = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error generating token" });
+  }
+};
