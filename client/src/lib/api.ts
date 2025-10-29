@@ -1,8 +1,12 @@
 import axios from "axios"
 import { useAuth } from "@/store/auth"
 
+// ✅ ดึง URL จาก .env
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api"
+
 export const api = axios.create({
-  baseURL: "http://localhost:5001/api",
+  baseURL: API_URL,
+  withCredentials: true,
 })
 
 api.interceptors.request.use((config) => {
@@ -13,7 +17,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// type ของ refresh response (แก้เป็น token ให้ตรงกับ backend)
+// type ของ refresh response
 interface RefreshResponse {
   token: string
 }
@@ -38,8 +42,9 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem("refreshToken")
         if (!refreshToken) throw new Error("No refresh token")
 
+        // ✅ แก้ตรงนี้ด้วย ให้ใช้ API_URL จาก env
         const res = await axios.post<RefreshResponse>(
-          "http://localhost:5001/api/auth/refresh",
+          `${API_URL.replace(/\/$/, "")}/auth/refresh`,
           { refreshToken }
         )
 
