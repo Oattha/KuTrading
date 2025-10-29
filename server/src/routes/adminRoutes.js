@@ -1,7 +1,9 @@
 import express from "express"
+import bcrypt from "bcryptjs"
+import jwt from "jsonwebtoken"
+import prisma from "../config/prisma.js"
 import { authMiddleware } from "../middlewares/authMiddleware.js"
 import nodemailer from "nodemailer"
-
 import {
   listPendingKyc,
   approveKyc,
@@ -25,6 +27,37 @@ const requireAdmin = (req, res, next) => {
   if (req.user.role !== "admin") return res.status(403).json({ message: "Admin only" })
   next()
 }
+
+// 🟣 Admin login (เฉพาะ role admin เท่านั้น)
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body
+    const admin = await prisma.user.findUnique({ where: { email } })
+
+    if (!admin) return res.status(404).json({ message: "User not found" })
+    if (admin.role !== "admin")
+      return res.status(403).json({ message: "Not authorized" })
+
+    const valid = await bcrypt.compare(password, admin.password || "")
+    if (!valid)
+      return res.status(401).json({ message: "Invalid email or password" })
+
+    const token = jwt.sign(
+      { id: admin.id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    )
+
+    res.json({
+      message: "Admin login successful",
+      user: { id: admin.id, email: admin.email, role: admin.role },
+      token,
+    })
+  } catch (err) {
+    console.error("Admin login error:", err)
+    res.status(500).json({ message: "Internal server error" })
+  }
+})
 
 // ----- KYC -----
 router.get("/kyc/pending", authMiddleware, requireAdmin, listPendingKyc)

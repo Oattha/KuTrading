@@ -45,6 +45,7 @@ app.use(express.json())
 app.get('/', (_req, res) => res.send('Marketplace API is running'))
 
 app.use('/api/auth', authRoutes)
+app.use("/api/admin", adminRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/posts', postRoutes)
 app.use('/api/chat', chatRoutes)
