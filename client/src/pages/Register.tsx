@@ -92,7 +92,7 @@ export default function Register() {
         {/* ✅ ปุ่มสมัครด้วย Google */}
         <button
           onClick={() =>
-            (window.location.href = "http://kutrading-server.onrender.com/api/auth/google")
+            (window.location.href = "https://kutrading-server.onrender.com/api/auth/google")
             //(window.location.href = "http://localhost:5001/api/auth/google")
           }
           type="button"

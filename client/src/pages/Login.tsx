@@ -47,7 +47,7 @@ export default function Login() {
   }
 
   const handleGoogleLogin = () => {
-      window.location.href = "http://kutrading-server.onrender.com/api/auth/google"
+      window.location.href = "https://kutrading-server.onrender.com/api/auth/google"
     {/*window.location.href = "http://localhost:5001/api/auth/google"*/}
   }
 
