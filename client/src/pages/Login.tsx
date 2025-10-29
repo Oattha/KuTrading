@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useAuth, User } from "@/store/auth"
 import { useNavigate } from "react-router-dom"
 import { api } from "@/lib/api"
+import logo from "@/assets/image/unnamed (2).png";
 
 interface LoginResponse {
   user: Partial<User>
@@ -46,7 +47,8 @@ export default function Login() {
   }
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5001/api/auth/google"
+      window.location.href = "http://kutrading-server.onrender.com/api/auth/google"
+    {/*window.location.href = "http://localhost:5001/api/auth/google"*/}
   }
 
   return (
@@ -70,11 +72,13 @@ export default function Login() {
       <div className="flex w-full md:w-1/2 flex-col justify-center items-center bg-white">
         <div className="w-full max-w-sm p-8">
           <div className="flex flex-col items-center mb-6">
+
             <img
-              src="src/assets/image/unnamed (2).png"
+              src={logo}
               alt="KuTrading Logo"
               className="w-40 h-40 mb-2"
             />
+
             <h1 className="text-2xl font-bold text-green-800">KuTrading</h1>
             <p className="text-gray-600 text-sm mt-1">เข้าสู่ระบบจัดการบัญชี</p>
           </div>
