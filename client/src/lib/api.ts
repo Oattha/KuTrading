@@ -3,6 +3,8 @@ import { useAuth } from "@/store/auth"
 
 // ✅ ดึง URL จาก .env
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api"
+console.log("✅ API URL =", API_URL) // <== เพิ่มบรรทัดนี้ไว้ debug ชั่วคราว
+
 
 export const api = axios.create({
   baseURL: API_URL,

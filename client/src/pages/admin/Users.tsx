@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
-import axios from "axios"
 import Button from "@/components/ui/button"
 import { useAuth } from "@/store/auth"
+import { api } from "@/lib/api" // ✅ ใช้ instance กลางแทน axios ตรง ๆ
 
 type AppUser = {
   id: number
@@ -22,9 +22,7 @@ export default function Users() {
     const fetchUsers = async () => {
       try {
         setLoading(true)
-        const res = await axios.get<AppUser[]>("/api/admin/users", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await api.get<AppUser[]>("/admin/users")
         setUsers(res.data)
       } catch (err) {
         console.error("Error fetching users:", err)
@@ -37,17 +35,14 @@ export default function Users() {
   }, [token])
 
   const toggleBan = async (id: number) => {
-    if (!token) return
-
-    const res = await axios.patch<AppUser>(
-      `/api/admin/users/${id}/toggle-ban`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-
-    alert(`User ${id} is now ${res.data.status}`)
-
-    setUsers((prev) => prev.map((u) => (u.id === id ? res.data : u)))
+    try {
+      const res = await api.patch<AppUser>(`/admin/users/${id}/toggle-ban`)
+      alert(`User ${id} is now ${res.data.status}`)
+      setUsers((prev) => prev.map((u) => (u.id === id ? res.data : u)))
+    } catch (err) {
+      console.error("Error toggling ban:", err)
+      alert("เกิดข้อผิดพลาดในการเปลี่ยนสถานะผู้ใช้")
+    }
   }
 
   // 📊 Pagination logic
@@ -63,22 +58,18 @@ export default function Users() {
     if (currentPage < totalPages) setCurrentPage((p) => p + 1)
   }
 
-const deleteUser = async (id: number) => {
-  if (!token) return
-  if (!confirm("คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้? การลบไม่สามารถย้อนกลับได้")) return
+  const deleteUser = async (id: number) => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้? การลบไม่สามารถย้อนกลับได้")) return
 
-  try {
-    await axios.delete(`/api/admin/users/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    alert("ลบผู้ใช้สำเร็จ")
-    setUsers((prev) => prev.filter((u) => u.id !== id))
-  } catch (err) {
-    console.error("Error deleting user:", err)
-    alert("ไม่สามารถลบผู้ใช้ได้")
+    try {
+      await api.delete(`/admin/users/${id}`)
+      alert("ลบผู้ใช้สำเร็จ")
+      setUsers((prev) => prev.filter((u) => u.id !== id))
+    } catch (err) {
+      console.error("Error deleting user:", err)
+      alert("ไม่สามารถลบผู้ใช้ได้")
+    }
   }
-}
 
   return (
     <div className="p-6">
@@ -86,7 +77,7 @@ const deleteUser = async (id: number) => {
 
       {loading ? (
         <p className="text-gray-500">⏳ Loading...</p>
-      ) : (
+      ) : Array.isArray(users) && users.length > 0 ? (
         <>
           <table className="w-full border rounded-md overflow-hidden">
             <thead>
@@ -115,16 +106,16 @@ const deleteUser = async (id: number) => {
                       {u.status}
                     </span>
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-2 px-4 text-center space-x-2">
                     <Button
                       variant={u.status === "banned" ? "primary" : "destructive"}
                       onClick={() => toggleBan(u.id)}
                     >
                       {u.status === "banned" ? "Unban" : "Ban"}
                     </Button>
-                      <Button variant="secondary" onClick={() => deleteUser(u.id)}>
-    🗑️ Delete
-  </Button>
+                    <Button variant="secondary" onClick={() => deleteUser(u.id)}>
+                      🗑️ Delete
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -156,6 +147,8 @@ const deleteUser = async (id: number) => {
             </div>
           )}
         </>
+      ) : (
+        <p className="text-gray-500">ไม่มีข้อมูลผู้ใช้</p>
       )}
     </div>
   )
