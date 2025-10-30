@@ -27,9 +27,8 @@ interface Report {
   targetUser?: { email: string }
   reason: string
   status: string
-  createdAt?: string  
+  createdAt?: string
 }
-
 
 export default function Reports() {
   const [users, setUsers] = useState<User[]>([])
@@ -39,23 +38,22 @@ export default function Reports() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [loadingReviews, setLoadingReviews] = useState(false)
-  // เพิ่ม state สำหรับแบ่งหน้ารีพอร์ต
-const [reportPage, setReportPage] = useState(1)
-const reportsPerPage = 5
-const totalReportPages = Math.ceil(reports.length / reportsPerPage)
-const indexOfLastReport = reportPage * reportsPerPage
-const indexOfFirstReport = indexOfLastReport - reportsPerPage
-const currentReports = reports.slice(indexOfFirstReport, indexOfLastReport)
 
-const navigate = useNavigate()
+  // ✅ Pagination ของรายงาน
+  const [reportPage, setReportPage] = useState(1)
+  const reportsPerPage = 5
+  const totalReportPages = Math.ceil(reports.length / reportsPerPage)
+  const indexOfLastReport = reportPage * reportsPerPage
+  const indexOfFirstReport = indexOfLastReport - reportsPerPage
+  const currentReports = reports.slice(indexOfFirstReport, indexOfLastReport)
 
-
+  const navigate = useNavigate()
 
   // 📦 โหลดข้อมูลผู้ใช้ทั้งหมด
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await api.get<User[]>("/users")
+        const res = await api.get<User[]>("/users") // ✅ baseURL จัดการ /api แล้ว
         setUsers(res.data)
       } catch (err) {
         console.error("Error fetching users:", err)
@@ -70,7 +68,7 @@ const navigate = useNavigate()
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await api.get<Report[]>("/reports")
+        const res = await api.get<Report[]>("/reports") // ✅ ใช้ instance api
         setReports(res.data)
       } catch (err) {
         console.error("Error fetching reports:", err)
@@ -82,8 +80,9 @@ const navigate = useNavigate()
   }, [])
 
   const handleReportPage = (page: number) => {
-  if (page >= 1 && page <= totalReportPages) setReportPage(page)
-}
+    if (page >= 1 && page <= totalReportPages) setReportPage(page)
+  }
+
   // 🔍 โหลดรีวิวของ user
   const handleViewReviews = async (user: User) => {
     setSelectedUser(user)
@@ -98,7 +97,7 @@ const navigate = useNavigate()
     }
   }
 
-  // 🧩 จัดหมวดคะแนน
+  // 🧩 จัดหมวดคะแนนผู้ใช้
   const categorizeUsers = () => {
     const good = users.filter((u) => (u.ratingAverage ?? 0) > 3.5)
     const mid = users.filter(
@@ -131,109 +130,107 @@ const navigate = useNavigate()
                   <th className="py-2 px-4 text-left">Reporter</th>
                   <th className="py-2 px-4 text-left">Target User</th>
                   <th className="py-2 px-4 text-left">Reason</th>
-                  <th className="py-2 px-4 text-left">Date</th> 
+                  <th className="py-2 px-4 text-left">Date</th>
                   <th className="py-2 px-4 text-center">Status</th>
                 </tr>
               </thead>
-<tbody>
-  {currentReports.map((r) => (
-    <tr key={r.id} className="border-b hover:bg-gray-50">
-      <td className="py-2 px-4">{r.reporter?.email || "—"}</td>
-      <td className="py-2 px-4">{r.targetUser?.email || "—"}</td>
-      <td className="py-2 px-4">{r.reason}</td>
+              <tbody>
+                {currentReports.map((r) => (
+                  <tr key={r.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-4">{r.reporter?.email || "—"}</td>
+                    <td className="py-2 px-4">{r.targetUser?.email || "—"}</td>
+                    <td className="py-2 px-4">{r.reason}</td>
+                    <td className="py-2 px-4 text-gray-500">
+                      {r.createdAt
+                        ? new Date(r.createdAt).toLocaleString("th-TH")
+                        : "—"}
+                    </td>
+                    <td className="text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        {/* ปุ่มส่งอีเมล — แสดงตลอด */}
+                        <button
+                          onClick={() =>
+                            navigate(`/admin/reports/${r.id}/notify`)
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-all text-sm"
+                        >
+                          ✉️ ส่งอีเมลเตือน
+                        </button>
 
-      {/* ✅ เพิ่มตรงนี้ */}
-      <td className="py-2 px-4 text-gray-500">
-        {r.createdAt ? new Date(r.createdAt).toLocaleString("th-TH") : "—"}
-      </td>
-
-<td className="text-center">
-  <div className="flex flex-col items-center gap-2">
-    {/* ปุ่มส่งอีเมล — แสดงตลอด */}
-    <button
-      onClick={() => navigate(`/admin/reports/${r.id}/notify`)}
-      className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition-all text-sm"
-    >
-      ✉️ ส่งอีเมลเตือน
-    </button>
-
-    {/* สถานะเคส */}
-    {r.status === "open" ? (
-      <button
-        onClick={async () => {
-          if (!confirm("ปิดเคสนี้ใช่ไหม?")) return
-          await api.put(`/reports/${r.id}/status`, { status: "resolved" })
-          alert("✅ ปิดเคสแล้ว")
-          window.location.reload()
-        }}
-        className="px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-all text-sm"
-      >
-        ปิดเคส
-      </button>
-    ) : (
-      <span className="px-3 py-1.5 rounded-full text-sm bg-green-100 text-green-800 border border-green-300">
-        ✅ ปิดแล้ว
-      </span>
-    )}
-  </div>
-</td>
-
-
-    </tr>
-  ))}
-</tbody>
-
-
+                        {/* สถานะเคส */}
+                        {r.status === "open" ? (
+                          <button
+                            onClick={async () => {
+                              if (!confirm("ปิดเคสนี้ใช่ไหม?")) return
+                              await api.put(`/reports/${r.id}/status`, {
+                                status: "resolved",
+                              })
+                              alert("✅ ปิดเคสแล้ว")
+                              window.location.reload()
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 transition-all text-sm"
+                          >
+                            ปิดเคส
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-full text-sm bg-green-100 text-green-800 border border-green-300">
+                            ✅ ปิดแล้ว
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         )}
 
         {/* 🔹 Pagination ของรีพอร์ต */}
-{totalReportPages > 1 && (
-  <div className="flex justify-center items-center gap-2 mt-4">
-    <button
-      onClick={() => handleReportPage(reportPage - 1)}
-      disabled={reportPage === 1}
-      className={`px-3 py-1 rounded ${
-        reportPage === 1
-          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-      }`}
-    >
-      ⬅️ ก่อนหน้า
-    </button>
+        {totalReportPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-4">
+            <button
+              onClick={() => handleReportPage(reportPage - 1)}
+              disabled={reportPage === 1}
+              className={`px-3 py-1 rounded ${
+                reportPage === 1
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+              }`}
+            >
+              ⬅️ ก่อนหน้า
+            </button>
 
-    {[...Array(totalReportPages)].map((_, i) => (
-      <button
-        key={i}
-        onClick={() => handleReportPage(i + 1)}
-        className={`px-3 py-1 rounded ${
-          reportPage === i + 1
-            ? "bg-rose-500 text-white"
-            : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-        }`}
-      >
-        {i + 1}
-      </button>
-    ))}
+            {[...Array(totalReportPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => handleReportPage(i + 1)}
+                className={`px-3 py-1 rounded ${
+                  reportPage === i + 1
+                    ? "bg-rose-500 text-white"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
 
-    <button
-      onClick={() => handleReportPage(reportPage + 1)}
-      disabled={reportPage === totalReportPages}
-      className={`px-3 py-1 rounded ${
-        reportPage === totalReportPages
-          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-          : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-      }`}
-    >
-      ถัดไป ➡️
-    </button>
-  </div>
-)}
-
+            <button
+              onClick={() => handleReportPage(reportPage + 1)}
+              disabled={reportPage === totalReportPages}
+              className={`px-3 py-1 rounded ${
+                reportPage === totalReportPages
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+              }`}
+            >
+              ถัดไป ➡️
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* 🔹 รายงานพฤติกรรมผู้ใช้ (คะแนนรีวิว) */}
+      {/* 🔹 พฤติกรรมผู้ใช้จากคะแนนรีวิว */}
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-indigo-600">
           ⭐ พฤติกรรมผู้ใช้จากคะแนนรีวิว
@@ -289,18 +286,26 @@ const navigate = useNavigate()
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
-                      <p className="font-medium text-gray-800">{r.reviewer.name}</p>
+                      <p className="font-medium text-gray-800">
+                        {r.reviewer.name}
+                      </p>
                       <div className="flex text-yellow-400">
                         {[...Array(5)].map((_, i) => (
                           <FaStar
                             key={i}
-                            className={i < r.rating ? "text-yellow-400" : "text-gray-300"}
+                            className={
+                              i < r.rating
+                                ? "text-yellow-400"
+                                : "text-gray-300"
+                            }
                           />
                         ))}
                       </div>
                     </div>
                   </div>
-                  <p className="text-gray-700 text-sm">{r.comment || "— ไม่มีข้อความ —"}</p>
+                  <p className="text-gray-700 text-sm">
+                    {r.comment || "— ไม่มีข้อความ —"}
+                  </p>
                   <span className="text-xs text-gray-400">
                     {new Date(r.createdAt).toLocaleString("th-TH")}
                   </span>
@@ -323,7 +328,7 @@ const navigate = useNavigate()
   )
 }
 
-// 🔹 Component แสดงตารางคะแนน
+// 🔹 Component แสดงตารางคะแนน (Section)
 function Section({
   title,
   users,

@@ -20,6 +20,7 @@ export default function SendEmail() {
   useEffect(() => {
     const fetchReport = async () => {
       try {
+        // ✅ ใช้ instance api ที่มี baseURL และ interceptor สำหรับ token
         const res = await api.get<Report[]>(`/reports`)
         const found = res.data.find((r: Report) => r.id === Number(id))
         setReport(found ?? null)
@@ -30,15 +31,17 @@ export default function SendEmail() {
     fetchReport()
   }, [id])
 
+  // ✉️ ส่งอีเมลแจ้งเตือนผู้ใช้
   const handleSend = async () => {
     if (!message.trim()) return alert("⚠️ กรุณาพิมพ์ข้อความก่อนส่ง")
     try {
       setLoading(true)
+      // ✅ ใช้ instance api เช่นกัน (baseURL + token)
       await api.post(`/reports/${id}/notify`, { message })
       alert("📧 ส่งอีเมลแจ้งเตือนสำเร็จแล้ว!")
       navigate("/admin/reports")
     } catch (err) {
-      console.error(err)
+      console.error("Error sending email:", err)
       alert("❌ ส่งอีเมลไม่สำเร็จ")
     } finally {
       setLoading(false)
@@ -76,6 +79,7 @@ export default function SendEmail() {
         >
           ย้อนกลับ
         </button>
+
         <button
           onClick={handleSend}
           disabled={loading}

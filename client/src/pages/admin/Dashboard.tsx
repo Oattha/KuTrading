@@ -1,67 +1,62 @@
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api"   // ใช้ api ที่ตั้ง baseURL แล้ว
-import { useAuth } from "@/store/auth";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react"
+import { api } from "@/lib/api" // ✅ ใช้ instance ที่ตั้ง baseURL แล้ว
+import { useAuth } from "@/store/auth"
+import { motion } from "framer-motion"
 import {
   UserGroupIcon,
   DocumentCheckIcon,
   ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
+} from "@heroicons/react/24/outline"
 
-// --- interface กำหนด type ชัดเจน ---
+// --- interface ---
 interface User {
-  id: number;
-  name: string;
-  email: string;
+  id: number
+  name: string
+  email: string
 }
 
 interface Kyc {
-  id: number;
-  status: string;
+  id: number
+  status: string
 }
 
 interface Report {
-  id: number;
-  description: string;
+  id: number
+  description: string
 }
 
 export default function Dashboard() {
-  const { token } = useAuth();
+  const { token } = useAuth()
   const [stats, setStats] = useState({
     users: 0,
     pendingKyc: 0,
     reports: 0,
-  });
+  })
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) return
 
     const fetchStats = async () => {
       try {
+        // ✅ ไม่ต้องใส่ /api/ อีก เพราะ api.ts มี baseURL = "https://kutrading-server.onrender.com/api"
         const [usersRes, kycRes, reportsRes] = await Promise.all([
-          api.get<User[]>("/api/users", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          api.get<Kyc[]>("/api/admin/kyc", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          api.get<Report[]>("/api/admin/reports", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+          api.get<User[]>("/users"),
+          api.get<Kyc[]>("/admin/kyc"),
+          api.get<Report[]>("/admin/reports"),
+        ])
 
         setStats({
           users: usersRes.data.length,
           pendingKyc: kycRes.data.filter((k) => k.status === "pending").length,
           reports: reportsRes.data.length,
-        });
+        })
       } catch (err) {
-        console.error("Failed to fetch dashboard stats", err);
+        console.error("Failed to fetch dashboard stats", err)
       }
-    };
+    }
 
-    fetchStats();
-  }, [token]);
+    fetchStats()
+  }, [token])
 
   const cards = [
     {
@@ -82,7 +77,7 @@ export default function Dashboard() {
       color: "bg-red-500",
       icon: <ExclamationTriangleIcon className="h-10 w-10 text-white" />,
     },
-  ];
+  ]
 
   return (
     <div>
@@ -105,5 +100,5 @@ export default function Dashboard() {
         ))}
       </div>
     </div>
-  );
+  )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { api } from "@/lib/api"
+import { api } from "@/lib/api" // ✅ ใช้ instance ที่มี baseURL และ interceptor แล้ว
 import { AdminLog } from "@/types"
 import { useNavigate } from "react-router-dom"
 
@@ -13,25 +13,20 @@ export default function Logs() {
 
   useEffect(() => {
     const fetchLogs = async () => {
-      const token = localStorage.getItem("token")
-
-      if (!token) {
-        setError("Unauthorized: No token found")
-        navigate("/admin/login")
-        return
-      }
-
       try {
-        const res = await api.get<AdminLog[]>("/admin/logs", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        setLoading(true)
+        // ✅ ไม่ต้องใส่ headers หรือ /api/ ซ้ำ เพราะ api.ts จัดการให้แล้ว
+        const res = await api.get<AdminLog[]>("/admin/logs")
         setLogs(res.data)
       } catch (err: any) {
         console.error("Error fetching logs:", err)
-        if (err.response?.status === 403) {
-          setError("Forbidden: You are not allowed to view this page")
+
+        // ✅ ตรวจ error ด้วย response status
+        if (err.response?.status === 401) {
+          setError("Unauthorized: กรุณาเข้าสู่ระบบใหม่อีกครั้ง")
+          navigate("/admin/login")
+        } else if (err.response?.status === 403) {
+          setError("Forbidden: คุณไม่มีสิทธิ์เข้าถึงหน้านี้")
           navigate("/admin/login")
         } else {
           setError("Failed to fetch logs")
@@ -55,6 +50,7 @@ export default function Logs() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Admin Logs</h1>
+
       <div className="overflow-x-auto bg-white shadow-md rounded-lg">
         <table className="w-full border-collapse">
           <thead>

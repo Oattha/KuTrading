@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import axios from "axios"
+import { api } from "@/lib/api" // ✅ ใช้ instance api ที่ตั้งค่า baseURL และ interceptor แล้ว
 import Button from "@/components/ui/button"
 import { useAuth } from "@/store/auth"
 import { KycDocument } from "@/types"
@@ -19,9 +19,8 @@ export default function Kyc() {
     const fetchDocs = async () => {
       try {
         setLoading(true)
-        const res = await axios.get<KycDocument[]>("/api/admin/kyc/pending", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        // ✅ ไม่ต้องใส่ /api/ ซ้ำ เพราะ baseURL = https://kutrading-server.onrender.com/api
+        const res = await api.get<KycDocument[]>("/admin/kyc/pending")
         setDocs(res.data)
       } catch (err) {
         console.error("Error fetching KYC:", err)
@@ -59,14 +58,15 @@ export default function Kyc() {
         payload = { reason }
       }
 
-      const res = await axios.patch<{ message: string }>(
-        `/api/admin/kyc/${id}/${action}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      // ✅ ใช้ api instance ที่มี token interceptor แล้ว
+      const res = await api.patch<{ message: string }>(
+        `/admin/kyc/${id}/${action}`,
+        payload
       )
 
       alert(res.data.message)
-      setDocs(prev => prev.filter(d => d.id !== id))
+      // ✅ เอาเอกสารที่จัดการแล้วออกจากรายการ
+      setDocs((prev) => prev.filter((d) => d.id !== id))
     } catch (err: any) {
       console.error(err)
       alert(err.response?.data?.message || "ทำรายการไม่สำเร็จ")
@@ -94,7 +94,7 @@ export default function Kyc() {
               </tr>
             </thead>
             <tbody>
-              {currentDocs.map(d => (
+              {currentDocs.map((d) => (
                 <tr key={d.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-2">{d.id}</td>
                   <td className="px-4 py-2">{d.user?.email}</td>

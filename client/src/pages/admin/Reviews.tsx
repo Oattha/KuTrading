@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import axios from "axios"
 import { useAuth } from "@/store/auth"
 import { Review } from "@/types/review"
 
@@ -16,9 +15,8 @@ export default function Reviews() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await axios.get<Review[]>("/api/reviews/admin/reviews", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        // ✅ ใช้ api instance ที่มี baseURL + interceptor แล้ว
+        const res = await api.get<Review[]>("/admin/reviews")
         setReviews(res.data)
       } catch (err) {
         console.error("Error fetching reviews", err)
@@ -32,11 +30,7 @@ export default function Reviews() {
   // ✅ toggle ซ่อน/เลิกซ่อน
   const toggleHideReview = async (id: number, hidden: boolean) => {
     try {
-      await api.patch(
-        `/admin/reviews/${id}/hide`,
-        { hidden: !hidden },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.patch(`/admin/reviews/${id}/hide`, { hidden: !hidden })
       setReviews((prev) =>
         prev.map((r) => (r.id === id ? { ...r, hidden: !hidden } : r))
       )
@@ -60,6 +54,7 @@ export default function Reviews() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">⭐ Reviews Management</h1>
+
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
           <thead className="bg-gray-100">
@@ -72,6 +67,7 @@ export default function Reviews() {
               <th className="px-4 py-2 text-center">Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {currentReviews.map((r) => (
               <tr key={r.id} className="border-b hover:bg-gray-50">
