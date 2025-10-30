@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js'
 import nodemailer from 'nodemailer'
+import SibApiV3Sdk from "sib-api-v3-sdk";
 
 // ⚡ transporter (SMTP — ตอน dev ใช้ Gmail หรือ Mailtrap ก็ได้)
 // ⚡ transporter (SMTP — ใช้ Brevo)
@@ -12,6 +13,14 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,       // ✅ xsmtpsib-xxxx...
   },
 })
+
+// ✅ ตั้งค่า Brevo API client
+const brevoClient = SibApiV3Sdk.ApiClient.instance;
+const apiKey = brevoClient.authentications["api-key"];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+
+const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
+
 
 
 // =====================
@@ -31,102 +40,126 @@ export const listPendingKyc = async (_req, res) => {
 
 export const approveKyc = async (req, res) => {
   try {
-    const { id } = req.params   // ✅ แก้จาก docId → id
-    const doc = await prisma.userDocument.update({
-      where: { id: Number(id) }, // ✅ แก้ docId → id
-      data: { 
-        status: "approved", 
-        reviewedAt: new Date(), 
-        reviewedById: req.user.id 
-      },
-      include: { user: true }
-    })
+    const { id } = req.params;
 
-    // ✅ บันทึก log
+    const doc = await prisma.userDocument.update({
+      where: { id: Number(id) },
+      data: {
+        status: "approved",
+        reviewedAt: new Date(),
+        reviewedById: req.user.id,
+      },
+      include: { user: true },
+    });
+
+    // ✅ บันทึก log การอนุมัติ
     await prisma.adminActionLog.create({
       data: {
         adminId: req.user.id,
         action: "approve_kyc",
         targetUserId: doc.userId,
-        details: { docId: doc.id }
-      }
-    })
+        details: { docId: doc.id },
+      },
+    });
 
-    // ส่งอีเมลแจ้ง approve
-    await transporter.sendMail({
-      from: process.env.SMTP_USER,
-      to: doc.user.email,
+    console.log("📨 Sending KYC approval email to:", doc.user.email);
+
+    // ✅ ส่งอีเมลผ่าน Brevo API
+    await emailApi.sendTransacEmail({
+      sender: {
+        email: "noreply@kutrading.com", // เปลี่ยนได้ตามโดเมนของคุณ
+        name: "KU Trading Verification",
+      },
+      to: [{ email: doc.user.email }],
       subject: "KYC Approved ✅",
-      text: `สวัสดี ${doc.user.name || "ผู้ใช้"}, เอกสารของคุณได้รับการอนุมัติแล้ว`
-    })
+      htmlContent: `
+        <p>สวัสดีคุณ <b>${doc.user.name || "ผู้ใช้"}</b>,</p>
+        <p>🎉 เอกสารยืนยันตัวตนของคุณได้รับการ <b>อนุมัติแล้ว</b></p>
+        <p>คุณสามารถเข้าสู่ระบบเพื่อใช้งาน Marketplace ได้เต็มรูปแบบ</p>
+        <br/>
+        <p>📎 ไฟล์ที่ตรวจสอบ:</p>
+        <p><a href="${doc.fileUrl}" target="_blank">${doc.fileUrl}</a></p>
+        <hr/>
+        <p style="font-size:12px;color:#888;">KU Trading Verification System</p>
+      `,
+    });
 
-    return res.json({ message: "KYC approved. กรุณา logout และ login ใหม่", doc })
+    console.log("✅ KYC approval email sent successfully!");
+    return res.json({ message: "KYC approved and email sent", doc });
   } catch (e) {
-    return res.status(500).json({ message: "Error approving KYC", error: e.message })
+    console.error("❌ approveKyc error:", e);
+    return res.status(500).json({
+      message: "Error approving KYC",
+      error: e.message,
+    });
   }
-}
+};
 
 export const rejectKyc = async (req, res) => {
   try {
-    const { id } = req.params
-    const { reason } = req.body
+    const { id } = req.params;
+    const { reason } = req.body;
 
     const doc = await prisma.userDocument.update({
       where: { id: Number(id) },
-      data: { 
-        status: "rejected", 
-        reviewedAt: new Date(), 
-        reviewedById: req.user.id, 
-        note: reason || null
+      data: {
+        status: "rejected",
+        reviewedAt: new Date(),
+        reviewedById: req.user.id,
+        note: reason || null,
       },
-      include: { user: true }
-    })
+      include: { user: true },
+    });
 
+    // ✅ บันทึก log การ reject
     await prisma.adminActionLog.create({
       data: {
         adminId: req.user.id,
         action: "reject_kyc",
         targetUserId: doc.userId,
         details: { docId: doc.id },
-        reason: reason || null
-      }
-    })
+        reason: reason || null,
+      },
+    });
 
-    // ✅ เพิ่ม log debug
-    console.log("📤 Sending reject email to:", doc.user.email)
-    console.log("🖼️ File URL:", doc.fileUrl)
+    console.log("📩 Sending reject email to:", doc.user.email);
+    console.log("🌐 File URL:", doc.fileUrl);
 
-    try {
-      await transporter.sendMail({
-        from: process.env.SMTP_USER,
-        to: doc.user.email,
-        subject: "KYC Rejected ❌",
-        html: `
-          <p>สวัสดี ${doc.user.name || "ผู้ใช้"},</p>
-          <p>เอกสารของคุณถูกปฏิเสธ ❌</p>
-          <p><b>เหตุผล:</b> ${reason}</p>
-          <p>รูปที่คุณส่งมา:</p>
-          <img src="cid:kycImg" style="max-width:400px;" />
-        `,
-        attachments: [
-          {
-            filename: "kyc.jpg",
-            path: doc.fileUrl,
-            cid: "kycImg",
-          },
-        ],
-      })
-      console.log("✅ Email sent successfully!")
-    } catch (mailErr) {
-      console.error("❌ Email send error:", mailErr)
-    }
+    // ✅ ใช้ Brevo API ส่งอีเมลแทน SMTP
+    const sender = {
+      email: "noreply@kutrading.com", // เปลี่ยนได้ตามโดเมนของคุณ
+      name: "KU Trading Team",
+    };
 
-    return res.json({ message: "KYC rejected", doc })
+    const receivers = [{ email: doc.user.email }];
+
+    await emailApi.sendTransacEmail({
+      sender,
+      to: receivers,
+      subject: "KYC Rejected ❌",
+      htmlContent: `
+        <p>สวัสดีคุณ <b>${doc.user.name || "ผู้ใช้"}</b>,</p>
+        <p>เอกสารยืนยันตัวตนของคุณ <b>ไม่ผ่านการตรวจสอบ</b> ❌</p>
+        <p><b>เหตุผล:</b> ${reason || "ไม่มีการระบุ"}</p>
+        <p>คุณสามารถตรวจสอบรูปที่ส่งมาได้ที่ลิงก์นี้:</p>
+        <p><a href="${doc.fileUrl}" target="_blank">${doc.fileUrl}</a></p>
+        <hr />
+        <p style="font-size:12px;color:#888;">KU Trading Verification System</p>
+      `,
+    });
+
+    console.log("✅ Brevo email sent successfully!");
+
+    return res.json({ message: "KYC rejected", doc });
   } catch (e) {
-    console.error("❌ rejectKyc error:", e)
-    return res.status(500).json({ message: "Error rejecting KYC", error: e.message })
+    console.error("❌ rejectKyc error:", e);
+    return res.status(500).json({
+      message: "Error rejecting KYC",
+      error: e.message,
+    });
   }
-}
+};
+
 
 
 // =====================
