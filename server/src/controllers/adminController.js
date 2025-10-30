@@ -68,20 +68,20 @@ export const approveKyc = async (req, res) => {
 
 export const rejectKyc = async (req, res) => {
   try {
-    const { id } = req.params   // ✅ แก้จาก docId → id
+    const { id } = req.params
     const { reason } = req.body
+
     const doc = await prisma.userDocument.update({
-      where: { id: Number(id) }, // ✅ แก้ docId → id
+      where: { id: Number(id) },
       data: { 
         status: "rejected", 
         reviewedAt: new Date(), 
         reviewedById: req.user.id, 
-        note: reason || null   // ✅ ใช้ note แทน rejectionReason
+        note: reason || null
       },
       include: { user: true }
     })
 
-    // ✅ บันทึก log
     await prisma.adminActionLog.create({
       data: {
         adminId: req.user.id,
@@ -92,31 +92,42 @@ export const rejectKyc = async (req, res) => {
       }
     })
 
-    // ส่งอีเมลแจ้ง reject
-await transporter.sendMail({
-  from: process.env.SMTP_USER,
-  to: doc.user.email,
-  subject: "KYC Rejected ❌",
-  html: `
-    <p>สวัสดี ${doc.user.name || "ผู้ใช้"},</p>
-    <p>เอกสารของคุณถูกปฏิเสธ ❌</p>
-    <p><b>เหตุผล:</b> ${reason}</p>
-    <p>รูปที่คุณส่งมา:</p>
-    <img src="cid:kycImg" style="max-width:400px;" />
-  `,
-  attachments: [
-    {
-      filename: "kyc.jpg",
-      path: doc.fileUrl, // ✅ URL หรือ local path
-      cid: "kycImg" // ✅ ต้องตรงกับ src="cid:kycImg"
+    // ✅ เพิ่ม log debug
+    console.log("📤 Sending reject email to:", doc.user.email)
+    console.log("🖼️ File URL:", doc.fileUrl)
+
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to: doc.user.email,
+        subject: "KYC Rejected ❌",
+        html: `
+          <p>สวัสดี ${doc.user.name || "ผู้ใช้"},</p>
+          <p>เอกสารของคุณถูกปฏิเสธ ❌</p>
+          <p><b>เหตุผล:</b> ${reason}</p>
+          <p>รูปที่คุณส่งมา:</p>
+          <img src="cid:kycImg" style="max-width:400px;" />
+        `,
+        attachments: [
+          {
+            filename: "kyc.jpg",
+            path: doc.fileUrl,
+            cid: "kycImg",
+          },
+        ],
+      })
+      console.log("✅ Email sent successfully!")
+    } catch (mailErr) {
+      console.error("❌ Email send error:", mailErr)
     }
-  ]
-})
+
     return res.json({ message: "KYC rejected", doc })
   } catch (e) {
+    console.error("❌ rejectKyc error:", e)
     return res.status(500).json({ message: "Error rejecting KYC", error: e.message })
   }
 }
+
 
 // =====================
 // User Management
