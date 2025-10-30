@@ -14,12 +14,19 @@ import SibApiV3Sdk from "sib-api-v3-sdk";
   },
 })
 */
-// ✅ ตั้งค่า Brevo API client
+// ✅ ตั้งค่า Brevo API client (พร้อม fallback)
 const brevoClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = brevoClient.authentications["api-key"];
 apiKey.apiKey = process.env.BREVO_API_KEY;
 
 const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
+
+// ✅ fallback sender (ถ้าไม่มี domain หรือ sender env)
+const DEFAULT_SENDER = {
+  email: process.env.SENDER_EMAIL || "facup877@gmail.com", // fallback อัตโนมัติ
+  name: "KU Trading System",
+};
+
 
 
 
@@ -66,10 +73,7 @@ export const approveKyc = async (req, res) => {
 
     // ✅ ส่งอีเมลผ่าน Brevo API
     await emailApi.sendTransacEmail({
-      sender: {
-        email: "noreply@kutrading.com", // เปลี่ยนได้ตามโดเมนของคุณ
-        name: "KU Trading Verification",
-      },
+      sender: DEFAULT_SENDER,
       to: [{ email: doc.user.email }],
       subject: "KYC Approved ✅",
       htmlContent: `
@@ -127,14 +131,14 @@ export const rejectKyc = async (req, res) => {
 
     // ✅ ใช้ Brevo API ส่งอีเมลแทน SMTP
     const sender = {
-      email: "noreply@kutrading.com", // เปลี่ยนได้ตามโดเมนของคุณ
+      email: "facup877@gmail.com", // เปลี่ยนได้ตามโดเมนของคุณ
       name: "KU Trading Team",
     };
 
     const receivers = [{ email: doc.user.email }];
 
     await emailApi.sendTransacEmail({
-      sender,
+      sender: DEFAULT_SENDER,
       to: receivers,
       subject: "KYC Rejected ❌",
       htmlContent: `
