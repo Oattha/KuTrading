@@ -27,9 +27,9 @@ export const listPendingKyc = async (_req, res) => {
 
 export const approveKyc = async (req, res) => {
   try {
-    const { docId } = req.params
+    const { id } = req.params   // ✅ แก้จาก docId → id
     const doc = await prisma.userDocument.update({
-      where: { id: Number(docId) },
+      where: { id: Number(id) }, // ✅ แก้ docId → id
       data: { 
         status: "approved", 
         reviewedAt: new Date(), 
@@ -64,10 +64,10 @@ export const approveKyc = async (req, res) => {
 
 export const rejectKyc = async (req, res) => {
   try {
-    const { docId } = req.params
+    const { id } = req.params   // ✅ แก้จาก docId → id
     const { reason } = req.body
     const doc = await prisma.userDocument.update({
-      where: { id: Number(docId) },
+      where: { id: Number(id) }, // ✅ แก้ docId → id
       data: { 
         status: "rejected", 
         reviewedAt: new Date(), 

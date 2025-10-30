@@ -61,9 +61,9 @@ router.post("/login", async (req, res) => {
 
 // ----- KYC -----
 router.get("/kyc/pending", authMiddleware, requireAdmin, listPendingKyc)
-router.patch("/kyc/:docId/approve", authMiddleware, requireAdmin, approveKyc)
-router.patch("/kyc/:docId/reject", authMiddleware, requireAdmin, rejectSingleKyc) // ✅ ทีละไฟล์
-router.post("/kyc/:userId/reject", authMiddleware, requireAdmin, rejectUserKyc)   // ✅ ลบหลายไฟล์
+router.patch("/kyc/:id/approve", authMiddleware, requireAdmin, approveKyc)   // ✅ แก้ docId → id
+router.patch("/kyc/:id/reject", authMiddleware, requireAdmin, rejectSingleKyc) // ✅ แก้ docId → id
+router.post("/kyc/:userId/reject", authMiddleware, requireAdmin, rejectUserKyc)  // ✅ ลบหลายไฟล์
 
 // ----- Users -----
 router.get("/users", authMiddleware, requireAdmin, listUsersAdmin)

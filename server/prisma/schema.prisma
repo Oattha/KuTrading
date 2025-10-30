@@ -1,4 +1,3 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,6 +5,298 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int                       @id @default(autoincrement())
+  email             String                    @unique
+  password          String?
+  name              String?
+  bio               String?
+  avatarUrl         String?
+  role              UserRole                  @default(user)
+  status            UserStatus                @default(pending)
+  isEmailVerified   Boolean                   @default(false)
+  ratingAverage     Float                     @default(0)
+  ratingCount       Int                       @default(0)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  adminActionLogs   AdminActionLog[]          @relation("AdminActor")
+  adminTargetLogs   AdminActionLog[]          @relation("AdminLog_TargetUser")
+  comments          Comment[]
+  conversations     ConversationParticipant[]
+  following         Follow[]                  @relation("following")
+  followers         Follow[]                  @relation("followers")
+  likes             Like[]
+  messages          Message[]                 @relation("UserMessages")
+  messageReads      MessageRead[]
+  notifications     Notification[]
+  posts             Post[]
+  reportsMade       Report[]                  @relation("Report_Reporter")
+  reportsResolved   Report[]                  @relation("Report_ResolvedBy")
+  reportsTargeted   Report[]                  @relation("Report_TargetUser")
+  reviewsReceived   Review[]                  @relation("ReviewsReceived")
+  reviewsGiven      Review[]                  @relation("ReviewsGiven")
+  tradesAsBuyer     Trade[]                   @relation("TradesAsBuyer")
+  tradesAsSeller    Trade[]                   @relation("TradesAsSeller")
+  reviewedDocuments UserDocument[]            @relation("ReviewedBy")
+  documents         UserDocument[]
+
+  @@index([status])
+  @@index([role])
+}
+
+model UserDocument {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  fileUrl      String
+  status       KycStatus @default(submitted)
+  note         String?
+  reviewedById Int?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  publicId     String
+  reviewedBy   User?     @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model Post {
+  id            Int            @id @default(autoincrement())
+  authorId      Int
+  content       String
+  visibility    PostVisibility @default(public)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  comments      Comment[]
+  likes         Like[]
+  notifications Notification[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  images        PostImage[]
+  videos        PostVideo[]
+  reports       Report[]       @relation("Report_TargetPost")
+  trades        Trade[]
+
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model PostImage {
+  id       Int    @id @default(autoincrement())
+  postId   Int
+  url      String
+  position Int    @default(0)
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model PostVideo {
+  id     Int    @id @default(autoincrement())
+  url    String
+  postId Int
+  post   Post   @relation(fields: [postId], references: [id])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  authorId  Int
+  content   String
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([authorId, createdAt])
+}
+
+model Like {
+  userId    Int
+  postId    Int
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+  follower    User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+}
+
+model Conversation {
+  id            Int                       @id @default(autoincrement())
+  isGroup       Boolean                   @default(false)
+  title         String?
+  lastMessageAt DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  tradeId       Int?
+  type          ConversationType          @default(private)
+  trade         Trade?                    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  participants  ConversationParticipant[]
+  messages      Message[]
+
+  @@index([lastMessageAt])
+  @@index([type])
+  @@index([tradeId])
+}
+
+model ConversationParticipant {
+  conversationId Int
+  userId         Int
+  joinedAt       DateTime     @default(now())
+  isMuted        Boolean      @default(false)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             Int           @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  type           MessageType   @default(text)
+  text           String?
+  mediaUrl       String?
+  metadata       Json?
+  readAt         DateTime?
+  createdAt      DateTime      @default(now())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User          @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  reads          MessageRead[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model Trade {
+  id            Int            @id @default(autoincrement())
+  buyerId       Int
+  sellerId      Int
+  postId        Int?
+  location      String
+  scheduledAt   DateTime?
+  status        TradeStatus    @default(available)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  offerImageUrl String?
+  /// 👇 ฟิลด์ใหม่
+  offerText     String?
+  Conversation  Conversation[]
+  notifications Notification[]
+  reviews       Review[]
+  buyer         User           @relation("TradesAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  post          Post?          @relation(fields: [postId], references: [id])
+  seller        User           @relation("TradesAsSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status, updatedAt])
+}
+
+model Review {
+  id         Int              @id @default(autoincrement())
+  tradeId    Int
+  reviewerId Int
+  revieweeId Int
+  rating     Int
+  comment    String?
+  visibility ReviewVisibility @default(visible)
+  createdAt  DateTime         @default(now())
+  hidden     Boolean          @default(false)
+  adminLogs  AdminActionLog[] @relation("AdminLog_TargetReview")
+  reports    Report[]         @relation("Report_TargetReview")
+  reviewee   User             @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+  reviewer   User             @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+  trade      Trade            @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, reviewerId])
+  @@index([revieweeId])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType @default(system)
+  title     String?
+  body      String?
+  metadata  Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  postId    Int?
+  tradeId   Int?
+  post      Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  trade     Trade?           @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([postId])
+  @@index([tradeId])
+}
+
+model Report {
+  id             Int          @id @default(autoincrement())
+  reporterId     Int
+  targetUserId   Int?
+  targetPostId   Int?
+  targetReviewId Int?
+  reason         String
+  status         ReportStatus @default(open)
+  resolvedById   Int?
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  reporter       User         @relation("Report_Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy     User?        @relation("Report_ResolvedBy", fields: [resolvedById], references: [id])
+  targetPost     Post?        @relation("Report_TargetPost", fields: [targetPostId], references: [id])
+  targetReview   Review?      @relation("Report_TargetReview", fields: [targetReviewId], references: [id])
+  targetUser     User?        @relation("Report_TargetUser", fields: [targetUserId], references: [id])
+
+  @@index([status])
+  @@index([reporterId])
+  @@index([targetUserId, targetPostId, targetReviewId])
+}
+
+model AdminActionLog {
+  id             Int      @id @default(autoincrement())
+  adminId        Int?
+  action         String
+  targetUserId   Int?
+  targetReviewId Int?
+  details        Json?
+  reason         String?
+  createdAt      DateTime @default(now())
+  admin          User?    @relation("AdminActor", fields: [adminId], references: [id])
+  targetReview   Review?  @relation("AdminLog_TargetReview", fields: [targetReviewId], references: [id])
+  targetUser     User?    @relation("AdminLog_TargetUser", fields: [targetUserId], references: [id])
+
+  @@index([adminId, createdAt])
+}
+
+model MessageRead {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  readAt    DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
 }
 
 /// ===== Enums =====
@@ -34,17 +325,17 @@ enum PostVisibility {
 enum MessageType {
   text
   image
-  video
   system
+  video
 }
 
 enum TradeStatus {
-  available
   requested
   pending
   accepted
   completed
   canceled
+  available
 }
 
 enum ReviewVisibility {
@@ -58,7 +349,7 @@ enum NotificationType {
   trade
   review
   message
-  report 
+  report
 }
 
 enum ReportStatus {
@@ -71,327 +362,4 @@ enum ReportStatus {
 enum ConversationType {
   private
   trade
-}
-/// ===== Models =====
-
-model User {
-  id               Int        @id @default(autoincrement())
-  email            String     @unique
-  password         String?
-  name             String?
-  bio              String?
-  avatarUrl        String?
-  role             UserRole   @default(user)
-  status           UserStatus @default(pending)
-  isEmailVerified  Boolean    @default(false)
-
-  ratingAverage    Float      @default(0)
-  ratingCount      Int        @default(0)
-
-  documents        UserDocument[]
-  posts            Post[]
-  comments         Comment[]
-  likes            Like[]
-  followers        Follow[]   @relation("followers")
-  following        Follow[]   @relation("following")
-  conversations    ConversationParticipant[]
-  messages         Message[]  @relation("UserMessages")
-  tradesAsBuyer    Trade[]    @relation("TradesAsBuyer")
-  tradesAsSeller   Trade[]    @relation("TradesAsSeller")
-  reviewsGiven     Review[]   @relation("ReviewsGiven")
-  reviewsReceived  Review[]   @relation("ReviewsReceived")
-  notifications    Notification[]
-
-  // ฝั่ง Report
-  reportsMade      Report[]   @relation("Report_Reporter")
-  reportsResolved  Report[]   @relation("Report_ResolvedBy")
-  reportsTargeted  Report[]   @relation("Report_TargetUser")
-
-  // แอดมิน
-  reviewedDocuments UserDocument[] @relation("ReviewedBy")
-  adminActionLogs  AdminActionLog[] @relation("AdminActor")
-  adminTargetLogs  AdminActionLog[] @relation("AdminLog_TargetUser") // ✅ เพิ่มตรงนี้
-
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-    // ✅ ฝั่งตรงข้ามของ MessageRead
-  messageReads     MessageRead[]
-
-  @@index([status])
-  @@index([role])
-}
-
-model UserDocument {
-  id          Int        @id @default(autoincrement())
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      Int
-  fileUrl     String
-  publicId    String        // ⬅️ ควรเพิ่ม
-  status      KycStatus  @default(submitted)
-  note        String?
-  reviewedBy  User?      @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedById Int?
-  reviewedAt  DateTime?
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  @@index([userId, status])
-}
-
-model Post {
-  id          Int           @id @default(autoincrement())
-  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    Int
-  content     String
-  visibility  PostVisibility @default(public)
-
-  images      PostImage[]
-  videos      PostVideo[]
-  comments    Comment[]
-  likes       Like[]
-  trades      Trade[]
-  reports     Report[] @relation("Report_TargetPost")
-  notifications Notification[] // 👈 Add this line for the opposite relation
-
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@index([authorId])
-  @@index([createdAt])
-}
-
-model PostImage {
-  id        Int     @id @default(autoincrement())
-  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId    Int
-  url       String
-  position  Int     @default(0)
-
-  @@index([postId])
-}
-
-model PostVideo {
-  id      Int    @id @default(autoincrement())
-  url     String   // ✅ ลิงก์ Cloudinary หรือ local path
-  postId  Int
-  post    Post   @relation(fields: [postId], references: [id])
-}
-
-model Comment {
-  id        Int     @id @default(autoincrement())
-  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId    Int
-  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId  Int
-  content   String
-
-  createdAt DateTime @default(now())
-
-  @@index([postId])
-  @@index([authorId, createdAt])
-}
-
-model Like {
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId   Int
-  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId   Int
-  createdAt DateTime @default(now())
-
-  @@id([userId, postId])
-  @@index([postId])
-}
-
-model Follow {
-  follower   User   @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
-  followerId Int
-  following  User   @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
-  followingId Int
-  createdAt  DateTime @default(now())
-
-  @@id([followerId, followingId])
-}
-
-model Conversation {
-  id             Int               @id @default(autoincrement())
-  type           ConversationType  @default(private)     // 👈 ระบุชนิดห้อง
-  trade          Trade?            @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  tradeId        Int?                                      // 👈 ถ้าเป็นห้องเทรด จะมี tradeId
-  isGroup        Boolean           @default(false)
-  title          String?
-  participants   ConversationParticipant[]
-  messages       Message[]
-  lastMessageAt  DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  @@index([lastMessageAt])
-  @@index([type])
-  @@index([tradeId])
-}
-
-
-model ConversationParticipant {
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         Int
-  joinedAt       DateTime     @default(now())
-  isMuted        Boolean      @default(false)
-
-  @@id([conversationId, userId])
-  @@index([userId])
-}
-
-model Message {
-  id             Int          @id @default(autoincrement())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int
-  sender         User         @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId       Int
-  type           MessageType  @default(text)
-  text           String?
-  mediaUrl       String?
-  metadata       Json?
-  readAt         DateTime?
-  createdAt      DateTime     @default(now())
-  reads         MessageRead[]   // 👈 relation ไปยังตารางอ่านแล้ว
-  @@index([conversationId, createdAt])
-  @@index([senderId])
-  
-}
-
-model Trade {
-  id            Int        @id @default(autoincrement())
-  buyer         User       @relation("TradesAsBuyer", fields: [buyerId], references: [id], onDelete: Cascade)   // ✅ แก้จาก Restrict → Cascade
-  buyerId       Int
-  seller        User       @relation("TradesAsSeller", fields: [sellerId], references: [id], onDelete: Cascade) // ✅ แก้จาก Restrict → Cascade
-  sellerId      Int
-  post          Post?      @relation(fields: [postId], references: [id], onDelete: SetNull)
-  postId        Int?
-
-  /// 👇 ฟิลด์ใหม่
-  offerText     String?     // รายละเอียดสิ่งที่ผู้ใช้เสนอแลก
-  offerImageUrl String?     // ลิงก์รูปของสิ่งที่จะแลก (อัป Cloudinary แล้วเก็บ URL)
-
-  location      String
-  scheduledAt   DateTime?
-  status        TradeStatus @default(available)
-
-  reviews       Review[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([buyerId])
-  @@index([sellerId])
-  @@index([status, updatedAt])
-  Conversation Conversation[]
-  notifications Notification[] // 👈 Opposite relation to Notification.trade
-}
-
-
-model Review {
-  id          Int        @id @default(autoincrement())
-  trade       Trade      @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  tradeId     Int
-  reviewer    User       @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
-  reviewerId  Int
-  reviewee    User       @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
-  revieweeId  Int
-  rating      Int
-  comment     String?
-  hidden      Boolean  @default(false)  // 👈 เพิ่มตรงนี้
-  visibility  ReviewVisibility @default(visible)
-
-  reports     Report[]   @relation("Report_TargetReview")
-  adminLogs   AdminActionLog[] @relation("AdminLog_TargetReview")
-
-  createdAt   DateTime   @default(now())
-
-  @@unique([tradeId, reviewerId])
-  @@index([revieweeId])
-}
-
-model Notification {
-  id        Int              @id @default(autoincrement())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int
-  type      NotificationType @default(system)
-  title     String?
-  body      String?
-  metadata  Json?
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  // 👇 เพิ่มตรงนี้
-  post      Post?   @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId    Int?
-
-  trade     Trade?  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  tradeId   Int?
-
-  @@index([userId, isRead, createdAt])
-  @@index([postId])
-  @@index([tradeId])
-}
-
-model Report {
-  id             Int         @id @default(autoincrement())
-  reporter       User        @relation("Report_Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  reporterId     Int
-
-  targetUser     User?       @relation("Report_TargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
-  targetUserId   Int?
-  targetPost     Post?       @relation("Report_TargetPost", fields: [targetPostId], references: [id], onDelete: SetNull)
-  targetPostId   Int?
-  targetReview   Review?     @relation("Report_TargetReview", fields: [targetReviewId], references: [id], onDelete: SetNull)
-  targetReviewId Int?
-
-  reason         String
-  status         ReportStatus @default(open)
-
-  resolvedBy     User?       @relation("Report_ResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
-  resolvedById   Int?
-  resolvedAt     DateTime?
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([status])
-  @@index([reporterId])
-  @@index([targetUserId, targetPostId, targetReviewId])
-}
-
-model AdminActionLog {
-  id           Int      @id @default(autoincrement())
-  admin        User?    @relation("AdminActor", fields: [adminId], references: [id], onDelete: SetNull)
-  adminId      Int?
-
-  action       String
-
-  targetUser   User?    @relation("AdminLog_TargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
-  targetUserId Int?
-  targetReview Review?  @relation("AdminLog_TargetReview", fields: [targetReviewId], references: [id], onDelete: SetNull)
-  targetReviewId Int?
-
-  details      Json?
-  reason       String?
-  createdAt    DateTime @default(now())
-
-  @@index([adminId, createdAt])
-}
-
-
-model MessageRead {
-  id        Int      @id @default(autoincrement())
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  messageId Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int
-  readAt    DateTime @default(now())
-
-  @@unique([messageId, userId]) // 1 user ต่อ 1 ข้อความ อ่านทับได้ไม่ซ้ำ
-  @@index([userId])
-  @@index([messageId])
 }
