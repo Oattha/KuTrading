@@ -4,7 +4,7 @@ import SibApiV3Sdk from "sib-api-v3-sdk";
 
 // ⚡ transporter (SMTP — ตอน dev ใช้ Gmail หรือ Mailtrap ก็ได้)
 // ⚡ transporter (SMTP — ใช้ Brevo)
-const transporter = nodemailer.createTransport({
+/*const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,        // ✅ smtp-relay.brevo.com
   port: Number(process.env.SMTP_PORT), // ✅ 587
   secure: false, // ❌ ห้ามใช้ true ถ้าเป็น port 587
@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,       // ✅ xsmtpsib-xxxx...
   },
 })
-
+*/
 // ✅ ตั้งค่า Brevo API client
 const brevoClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = brevoClient.authentications["api-key"];
