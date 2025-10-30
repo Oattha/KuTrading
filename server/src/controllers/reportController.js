@@ -6,6 +6,7 @@ export const reportUser = async (req, res) => {
   try {
     const { targetUserId, reason } = req.body
 
+    // 🧩 ตรวจสอบข้อมูลพื้นฐาน
     if (!targetUserId || !reason) {
       return res.status(400).json({ message: "ต้องระบุผู้ใช้และเหตุผล" })
     }
@@ -14,6 +15,7 @@ export const reportUser = async (req, res) => {
       return res.status(400).json({ message: "ไม่สามารถรีพอร์ตตัวเองได้" })
     }
 
+    // 🧱 สร้างรายการรีพอร์ตใหม่
     const report = await prisma.report.create({
       data: {
         reporterId: req.user.id,
@@ -23,23 +25,34 @@ export const reportUser = async (req, res) => {
       },
     })
 
-    // ✅ แจ้งเตือนแอดมิน
-    await prisma.notification.create({
-      data: {
-        userId: 1, // สมมติแอดมิน id=1 หรือจะ broadcast ก็ได้
-        type: "report",
-        title: "มีการรีพอร์ตผู้ใช้ใหม่",
-        body: `User ${req.user.email} รีพอร์ต user ID ${targetUserId}`,
-        metadata: { reportId: report.id },
-      },
+    // ✅ ดึงรายชื่อแอดมินทั้งหมด
+    const admins = await prisma.user.findMany({
+      where: { role: "admin" },
+      select: { id: true, email: true },
     })
 
-    return res.json({ message: "ส่งรีพอร์ตสำเร็จ", report })
+    // 📨 แจ้งเตือนแอดมินทุกคน
+    await Promise.all(
+      admins.map((admin) =>
+        prisma.notification.create({
+          data: {
+            userId: admin.id,
+            type: "report",
+            title: "มีการรีพอร์ตผู้ใช้ใหม่",
+            body: `ผู้ใช้ ${req.user.email} ได้รีพอร์ตผู้ใช้ ID ${targetUserId}`,
+            metadata: { reportId: report.id },
+          },
+        })
+      )
+    )
+
+    return res.json({ message: "✅ ส่งรีพอร์ตสำเร็จ และแจ้งเตือนแอดมินแล้ว", report })
   } catch (e) {
-    console.error("REPORT USER ERROR:", e)
+    console.error("❌ REPORT USER ERROR:", e)
     return res.status(500).json({ message: "เกิดข้อผิดพลาดในการรีพอร์ต" })
   }
 }
+
 
 
 // ✅ แอดมินดูรีพอร์ตทั้งหมด
