@@ -16,7 +16,7 @@ export default function Reviews() {
     const fetchReviews = async () => {
       try {
         // ✅ ใช้ api instance ที่มี baseURL + interceptor แล้ว
-        const res = await api.get<Review[]>("/admin/reviews")
+        const res = await api.get<Review[]>("/reviews/admin/reviews")
         setReviews(res.data)
       } catch (err) {
         console.error("Error fetching reviews", err)
@@ -30,7 +30,12 @@ export default function Reviews() {
   // ✅ toggle ซ่อน/เลิกซ่อน
   const toggleHideReview = async (id: number, hidden: boolean) => {
     try {
-      await api.patch(`/admin/reviews/${id}/hide`, { hidden: !hidden })
+      if (hidden) {
+        await api.patch(`/reviews/admin/reviews/${id}/unhide`) // ✅ unhide
+      } else {
+        await api.patch(`/reviews/admin/reviews/${id}/hide`)   // ✅ hide
+      }
+
       setReviews((prev) =>
         prev.map((r) => (r.id === id ? { ...r, hidden: !hidden } : r))
       )
@@ -116,11 +121,10 @@ export default function Reviews() {
           <button
             onClick={() => handlePageClick(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`px-3 py-1 rounded ${
-              currentPage === 1
+            className={`px-3 py-1 rounded ${currentPage === 1
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-            }`}
+              }`}
           >
             ⬅️ ก่อนหน้า
           </button>
@@ -129,11 +133,10 @@ export default function Reviews() {
             <button
               key={i}
               onClick={() => handlePageClick(i + 1)}
-              className={`px-3 py-1 rounded ${
-                currentPage === i + 1
+              className={`px-3 py-1 rounded ${currentPage === i + 1
                   ? "bg-indigo-500 text-white"
                   : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-              }`}
+                }`}
             >
               {i + 1}
             </button>
@@ -142,11 +145,10 @@ export default function Reviews() {
           <button
             onClick={() => handlePageClick(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`px-3 py-1 rounded ${
-              currentPage === totalPages
+            className={`px-3 py-1 rounded ${currentPage === totalPages
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-            }`}
+              }`}
           >
             ถัดไป ➡️
           </button>
