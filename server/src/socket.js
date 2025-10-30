@@ -6,10 +6,14 @@ let io
 export function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: "http://localhost:5173", // ✅ frontend
+      origin: [
+        "http://localhost:5173",              // ✅ สำหรับพัฒนาในเครื่อง
+        process.env.CLIENT_URL,               // ✅ สำหรับ production (Render)
+      ].filter(Boolean),                      // กรอง null ออก
       methods: ["GET", "POST"],
       credentials: true,
     },
+    transports: ["websocket", "polling"],     // ✅ รองรับ fallback
   })
 
   io.on("connection", (socket) => {
@@ -27,7 +31,6 @@ export function initSocket(server) {
       if (userId) {
         const room = `user_${userId}`
         if (!socket.rooms.has(room)) {
-          // ✅ กัน join ซ้ำ
           socket.join(room)
           console.log(`🔔 User ${userId} joined room via register()`)
         }
@@ -49,22 +52,15 @@ export function initSocket(server) {
     // ✅ broadcast การอ่านแล้ว
     socket.on("message:read", ({ conversationId, userId, lastReadMessageId }) => {
       console.log("👁️ message:read", { conversationId, userId, lastReadMessageId })
-      io.to(`conv_${conversationId}`).emit("message:read", {
-        userId,
-        lastReadMessageId,
-      })
+      io.to(`conv_${conversationId}`).emit("message:read", { userId, lastReadMessageId })
     })
 
-    // ✅ รับ event เมื่อ frontend แจ้งว่าอ่าน noti แล้ว
+    // ✅ การแจ้งเตือน
     socket.on("notification:read", ({ id }) => {
-      if (!id) return
-      console.log("👁️ notification:read from client", id)
-      io.emit("notification:read", { id }) // broadcast ไปทุก client
+      if (id) io.emit("notification:read", { id })
     })
 
-    // ✅ รับ event เมื่อ frontend แจ้งว่าอ่านทั้งหมดแล้ว
     socket.on("notification:markAllRead", () => {
-      console.log("✅ notification:markAllRead from client")
       io.emit("notification:markAllRead")
     })
 
@@ -76,23 +72,13 @@ export function initSocket(server) {
   return io
 }
 
-// ✅ ฟังก์ชันสำหรับ emit event จาก controller
+// ✅ ฟังก์ชัน emit event จาก controller
 export function getIO() {
   if (!io) {
-    // 🧪 mock สำหรับโหมดเทสต์ (Jest)
     if (process.env.NODE_ENV === "test") {
-      return {
-        to: () => ({
-          emit: () => {
-            // mock เงียบ ๆ เพื่อไม่ให้ error ในเทสต์
-          },
-        }),
-      }
+      return { to: () => ({ emit: () => {} }) }
     }
-
-    // ❌ โหมดปกติถ้าไม่ได้ initSocket ให้แจ้งเตือนจริง
     throw new Error("Socket.io not initialized!")
   }
-
   return io
 }
