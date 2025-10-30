@@ -2,13 +2,17 @@ import prisma from '../config/prisma.js'
 import nodemailer from 'nodemailer'
 
 // ⚡ transporter (SMTP — ตอน dev ใช้ Gmail หรือ Mailtrap ก็ได้)
+// ⚡ transporter (SMTP — ใช้ Brevo)
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: process.env.SMTP_HOST,        // ✅ smtp-relay.brevo.com
+  port: Number(process.env.SMTP_PORT), // ✅ 587
+  secure: false, // ❌ ห้ามใช้ true ถ้าเป็น port 587
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER,       // ✅ 9a5a54001@smtp-brevo.com
+    pass: process.env.SMTP_PASS,       // ✅ xsmtpsib-xxxx...
   },
 })
+
 
 // =====================
 // KYC Verification
@@ -108,8 +112,6 @@ await transporter.sendMail({
     }
   ]
 })
-
-
     return res.json({ message: "KYC rejected", doc })
   } catch (e) {
     return res.status(500).json({ message: "Error rejecting KYC", error: e.message })
