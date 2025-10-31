@@ -44,16 +44,38 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { name, bio, avatarUrl } = req.body
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+
+    // ✅ ตรวจสอบว่ามีการเปลี่ยนชื่อภายใน 7 วันไหม
+    if (name && name !== user.name && user.lastNameChange) {
+      const diffDays =
+        (Date.now() - new Date(user.lastNameChange).getTime()) /
+        (1000 * 60 * 60 * 24)
+      if (diffDays < 7) {
+        const remaining = Math.ceil(7 - diffDays)
+        return res.status(400).json({
+          message: `คุณสามารถเปลี่ยนชื่อได้อีกครั้งในอีก ${remaining} วัน`,
+        })
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id: req.user.id },
-      data: { name, bio, avatarUrl },
+      data: {
+        name,
+        bio,
+        avatarUrl,
+        ...(name && name !== user.name && { lastNameChange: new Date() }), // ✅ บันทึกเวลาที่เปลี่ยนชื่อ
+      },
     })
+
     return res.json(updated)
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ message: 'Error updating profile' })
+    return res.status(500).json({ message: "Error updating profile" })
   }
 }
+
 
 // ✅ ลิสต์ users ทั้งหมด
 export const listUsers = async (_req, res) => {

@@ -15,6 +15,7 @@ model User {
   bio               String?
   avatarUrl         String?
   role              UserRole                  @default(user)
+  lastNameChange    DateTime?   // ✅ เวลาที่เปลี่ยนชื่อครั้งล่าสุด
   status            UserStatus                @default(pending)
   isEmailVerified   Boolean                   @default(false)
   ratingAverage     Float                     @default(0)
