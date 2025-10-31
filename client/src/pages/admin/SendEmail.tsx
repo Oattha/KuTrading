@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { useState, useEffect } from "react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/store/auth"  // ✅ เพิ่มบรรทัดนี้
 
 interface Report {
   id: number
@@ -12,37 +13,44 @@ interface Report {
 export default function SendEmail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { token } = useAuth()  // ✅ ดึง token มาจาก store
   const [message, setMessage] = useState("")
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // 📦 ดึงข้อมูลรีพอร์ตนั้นมาโชว์
+  // 📦 โหลดข้อมูลรีพอร์ต
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        // ✅ ใช้ instance api ที่มี baseURL และ interceptor สำหรับ token
-        const res = await api.get<Report[]>(`/reports`)
-        const found = res.data.find((r: Report) => r.id === Number(id))
+        const res = await api.get<Report[]>(`/reports`, {
+          headers: { Authorization: `Bearer ${token}` }, // ✅ เพิ่ม token เผื่อ interceptor ไม่แนบ
+        })
+        const found = res.data.find((r) => r.id === Number(id))
         setReport(found ?? null)
       } catch (err) {
         console.error("Error loading report:", err)
       }
     }
-    fetchReport()
-  }, [id])
+    if (token) fetchReport()
+  }, [id, token])
 
-  // ✉️ ส่งอีเมลแจ้งเตือนผู้ใช้
+  // ✉️ ส่งอีเมลแจ้งเตือน
   const handleSend = async () => {
     if (!message.trim()) return alert("⚠️ กรุณาพิมพ์ข้อความก่อนส่ง")
     try {
       setLoading(true)
-      // ✅ ใช้ instance api เช่นกัน (baseURL + token)
-      await api.post(`/reports/${id}/notify`, { message })
+      await api.post(
+        `/reports/${id}/notify`,
+        { message },
+        {
+          headers: { Authorization: `Bearer ${token}` }, // ✅ แนบ token ไว้ตรงนี้ด้วย
+        }
+      )
       alert("📧 ส่งอีเมลแจ้งเตือนสำเร็จแล้ว!")
       navigate("/admin/reports")
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending email:", err)
-      alert("❌ ส่งอีเมลไม่สำเร็จ")
+      alert(err.response?.data?.message || "❌ ส่งอีเมลไม่สำเร็จ")
     } finally {
       setLoading(false)
     }
