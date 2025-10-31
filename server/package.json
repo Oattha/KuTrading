@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "prisma:studio": "prisma studio",
     "prisma:migrate": "prisma migrate dev",
-    "test": "cross-env NODE_ENV=test dotenv_config_path=.env.test node --require dotenv/config --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
+    "test": "cross-env NODE_ENV=test dotenv_config_path=.env.test node --require dotenv/config --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "test:prod": "cross-env NODE_ENV=test dotenv_config_path=.env.test.production BASE_URL=https://kutrading-server.onrender.com node --require dotenv/config --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

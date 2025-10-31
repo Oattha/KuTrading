@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken"
 import prisma from "../config/prisma.js"
 import { authMiddleware } from "../middlewares/authMiddleware.js"
 import nodemailer from "nodemailer"
+import { notifyReportedUser } from "../controllers/reportAdminController.js";
+import { checkUserStatus } from "../middlewares/checkUserStatus.js";
 import {
   listPendingKyc,
   approveKyc,
@@ -97,5 +99,8 @@ router.get("/test-mail", authMiddleware, requireAdmin, async (req, res) => {
 
 // ----- Logs -----
 router.get("/logs", authMiddleware, requireAdmin, getAdminLogs)
+
+// ✅ Admin ส่งอีเมลแจ้งผู้ถูกรีพอร์ต
+router.post("/reports/:id/notify", authMiddleware, checkUserStatus, notifyReportedUser);
 
 export default router

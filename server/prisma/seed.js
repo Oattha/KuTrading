@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  const hashed = await bcrypt.hash("admin123", 10) // ตั้งรหัส admin123
+  const hashed = await bcrypt.hash("admin123@", 10) // ตั้งรหัส admin123
 
   await prisma.user.upsert({
     where: { email: "facup877@gmail.com" },

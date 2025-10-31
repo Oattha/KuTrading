@@ -3,8 +3,16 @@ import prisma from "./src/config/prisma.js";
 import bcrypt from "bcryptjs";
 
 beforeAll(async () => {
+  console.log("🧹 Reset test database...");
+
+  // ✅ ข้าม reset ถ้าเป็น production test (Render)
+  if (process.env.BASE_URL?.includes("onrender.com")) {
+    console.log("⏩ ข้ามการ reset DB (ใช้ฐานข้อมูล Production)");
+    return;
+  }
+
   try {
-    console.log("🧹 Reset test database...");
+    // 🧱 Reset เฉพาะตอนรันทดสอบ local เท่านั้น
     execSync("npx prisma migrate reset --force --skip-generate --skip-seed", {
       stdio: "inherit",
     });
@@ -16,19 +24,19 @@ beforeAll(async () => {
       data: {
         email: "testuser@gmail.com",
         name: "Test User",
-        avatarUrl: "https://via.placeholder.com/100", // ✅ ใช้ avatarUrl
+        avatarUrl: "https://via.placeholder.com/100",
         role: "user",
         status: "active",
         password: await bcrypt.hash("testpassword", 10),
       },
     });
 
-    // ✅ ผู้ใช้ที่ใช้เทสจริงของคุณ (Garefafaw)
+    // ✅ ผู้ใช้รอง (ตัวทดสอบเพิ่มเติม)
     await prisma.user.create({
       data: {
         email: "garefafaw@gmail.com",
         name: "Garefafaw",
-        avatarUrl: "https://via.placeholder.com/100", // ✅ ใช้ avatarUrl
+        avatarUrl: "https://via.placeholder.com/100",
         role: "user",
         status: "active",
         password: await bcrypt.hash("garefafaw1", 10),
