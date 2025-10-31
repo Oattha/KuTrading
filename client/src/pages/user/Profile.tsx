@@ -180,17 +180,17 @@ export default function Profile() {
   }
 
   const handleReportUser = async (reason: string) => {
-  try {
-    const res = await api.post("/reports/user", {
-      targetUserId: profileUser.id,
-      reason,
-    })
-    alert("✅ ส่งรีพอร์ตสำเร็จ")
-  } catch (err) {
-    console.error("Error reporting user:", err)
-    alert("❌ เกิดข้อผิดพลาดในการรีพอร์ต")
+    try {
+      const res = await api.post("/reports/user", {
+        targetUserId: profileUser.id,
+        reason,
+      })
+      alert("✅ ส่งรีพอร์ตสำเร็จ")
+    } catch (err) {
+      console.error("Error reporting user:", err)
+      alert("❌ เกิดข้อผิดพลาดในการรีพอร์ต")
+    }
   }
-}
 
 
   return (
@@ -230,28 +230,28 @@ export default function Profile() {
               )}
             </div>
 
-{user && user.id !== profileUser.id && (
-  <>
-    <button
-      onClick={handleStartChat}
-      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 shadow-md transition"
-    >
-      <FaComments /> เริ่มแชทส่วนตัว
-    </button>
+            {user && user.id !== profileUser.id && (
+              <>
+                <button
+                  onClick={handleStartChat}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 shadow-md transition"
+                >
+                  <FaComments /> เริ่มแชทส่วนตัว
+                </button>
 
-    {/* 🔸 ปุ่มรีพอร์ต */}
-    <button
-      onClick={() => {
-        const reason = prompt("กรุณากรอกเหตุผลที่ต้องการรีพอร์ตผู้ใช้นี้:")
-        if (!reason) return
-        handleReportUser(reason)
-      }}
-      className="w-full sm:w-auto mt-3 flex items-center justify-center gap-2 px-5 py-2 bg-rose-500 text-white font-medium rounded-full hover:bg-rose-600 shadow-md transition"
-    >
-      🚨 รีพอร์ตผู้ใช้
-    </button>
-  </>
-)}
+                {/* 🔸 ปุ่มรีพอร์ต */}
+                <button
+                  onClick={() => {
+                    const reason = prompt("กรุณากรอกเหตุผลที่ต้องการรีพอร์ตผู้ใช้นี้:")
+                    if (!reason) return
+                    handleReportUser(reason)
+                  }}
+                  className="w-full sm:w-auto mt-3 flex items-center justify-center gap-2 px-5 py-2 bg-rose-500 text-white font-medium rounded-full hover:bg-rose-600 shadow-md transition"
+                >
+                  🚨 รีพอร์ตผู้ใช้
+                </button>
+              </>
+            )}
 
 
             {user && user.id === profileUser.id && (
@@ -275,30 +275,65 @@ export default function Profile() {
           </div>
         </div>
 
-<div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
-  <p>
-    <FaUserTag className="inline mr-2 text-indigo-500" />
-    <b>Name:</b> {profileUser.name}
-  </p>
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700">
+          <p>
+            <FaUserTag className="inline mr-2 text-indigo-500" />
+            <b>Name:</b> {profileUser.name}
+          </p>
 
-  {/* ✅ แสดงเฉพาะเจ้าของเท่านั้น */}
-  {user && user.id === profileUser.id && (
-    <>
-      <p>
-        <FaIdBadge className="inline mr-2 text-indigo-500" />
-        <b>ID:</b> {profileUser.id}
-      </p>
-      <p>
-        <FaEnvelope className="inline mr-2 text-indigo-500" />
-        <b>Email:</b> {profileUser.email}
-      </p>
-      <p>
-        <FaUserShield className="inline mr-2 text-indigo-500" />
-        <b>Role:</b> {profileUser.role}
-      </p>
-    </>
-  )}
-</div>
+          {/* ✅ แสดงเฉพาะเจ้าของเท่านั้น */}
+          {user && user.id === profileUser.id && (
+            <>
+              <p>
+                <FaIdBadge className="inline mr-2 text-indigo-500" />
+                <b>ID:</b> {profileUser.id}
+              </p>
+              <p>
+                <FaEnvelope className="inline mr-2 text-indigo-500" />
+                <b>Email:</b> {profileUser.email}
+              </p>
+              <p>
+                <FaUserShield className="inline mr-2 text-indigo-500" />
+                <b>Role:</b> {profileUser.role}
+              </p>
+            </>
+          )}
+        </div>
+
+        {user && user.id === profileUser.id && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              แก้ไขชื่อผู้ใช้
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={profileUser.name}
+                onChange={(e) =>
+                  setProfileUser({ ...profileUser, name: e.target.value })
+                }
+                className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.put<{ name: string }>("/users/me", {
+                      name: profileUser.name,
+                    })
+                    setUser({ ...user, name: res.data.name })
+                    alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
+                  } catch (err) {
+                    console.error(err)
+                    alert("❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ")
+                  }
+                }}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+              >
+                บันทึก
+              </button>
+            </div>
+          </div>
+        )}
 
 
         {user && user.id === profileUser.id && (
