@@ -196,7 +196,6 @@ export default function Profile() {
     }
   }
 
-
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-12">
       {/* 🧍‍♂️ ส่วนโปรไฟล์ */}
@@ -257,7 +256,6 @@ export default function Profile() {
               </>
             )}
 
-
             {user && user.id === profileUser.id && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -304,6 +302,7 @@ export default function Profile() {
           )}
         </div>
 
+        {/* 🔧 ส่วนแก้ไขชื่อ */}
         {user && user.id === profileUser.id && (
           <div className="mt-4">
             {!showNameEdit ? (
@@ -327,28 +326,16 @@ export default function Profile() {
                     }
                     className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                   />
+                  {/* ✅ ปุ่มบันทึกจะเปิด Modal แทน */}
                   <button
-                    onClick={async () => {
-                      try {
-                        const res = await api.put<{ name: string }>("/users/me", {
-                          name: profileUser.name,
-                        })
-                        setUser({ ...user, name: res.data.name })
-                        alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
-                        setShowNameEdit(false) // 🔹 ซ่อนหลังบันทึกเสร็จ
-                      } catch (err: any) {
-                        const msg =
-                          err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
-                        alert(msg)
-                      }
-                    }}
+                    onClick={() => setShowConfirmModal(true)}
                     className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
                   >
                     บันทึก
                   </button>
                   <button
-                    onClick={() => setShowConfirmModal(true)}
-                    className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+                    onClick={() => setShowNameEdit(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
                   >
                     ยกเลิก
                   </button>
@@ -358,7 +345,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* 🔹 Modal ยืนยันการเปลี่ยนชื่อ (พร้อม animation) */}
+        {/* 🔹 Modal ยืนยันการเปลี่ยนชื่อ */}
         <AnimatePresence>
           {showConfirmModal && (
             <motion.div
@@ -392,7 +379,7 @@ export default function Profile() {
                         const res = await api.put<{ name: string }>("/users/me", {
                           name: profileUser.name,
                         })
-                        setUser({ ...user!, name: res.data.name }) // ✅ ใช้ user! ปลอดภัย
+                        setUser({ ...user!, name: res.data.name })
                         alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
                         setShowConfirmModal(false)
                         setShowNameEdit(false)
@@ -420,17 +407,7 @@ export default function Profile() {
           )}
         </AnimatePresence>
 
-        {/* 🔴 แล้วหลังจากนี้ค่อยมีปุ่ม Logout */}
-        {user && user.id === profileUser.id && (
-          <button
-            onClick={logout}
-            className="mt-8 flex items-center gap-2 px-5 py-2 bg-rose-500 text-white font-medium rounded-full hover:bg-rose-600 shadow-md transition"
-          >
-            <FaSignOutAlt /> Logout
-          </button>
-        )}
-
-
+        {/* 🔴 Logout */}
         {user && user.id === profileUser.id && (
           <button
             onClick={logout}
@@ -441,7 +418,7 @@ export default function Profile() {
         )}
       </section>
 
-      {/* 🔹 Modal แสดงรีวิว */}
+      {/* 🔹 Modal รีวิว */}
       {showReviews && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
