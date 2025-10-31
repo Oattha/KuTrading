@@ -49,6 +49,9 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
 
+  const [showNameEdit, setShowNameEdit] = useState(false)
+
+
   // ⭐ เพิ่ม state สำหรับรีวิว
   const [reviews, setReviews] = useState<Review[]>([])
   const [avgRating, setAvgRating] = useState<number>(0)
@@ -301,40 +304,59 @@ export default function Profile() {
         </div>
 
         {user && user.id === profileUser.id && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              แก้ไขชื่อผู้ใช้
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={profileUser.name}
-                onChange={(e) =>
-                  setProfileUser({ ...profileUser, name: e.target.value })
-                }
-                className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-              />
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await api.put<{ name: string }>("/users/me", {
-                      name: profileUser.name,
-                    })
-                    setUser({ ...user, name: res.data.name })
-                    alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
-                  } catch (err: any) {
-                    const msg =
-                      err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
-                    alert(msg)
-                  }
-                }}
-                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
-              >
-                บันทึก
-              </button>
-            </div>
-          </div>
-        )}
+  <div className="mt-4">
+    {!showNameEdit ? (
+      <button
+        onClick={() => setShowNameEdit(true)}
+        className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+      >
+        ✏️ แก้ไขชื่อ
+      </button>
+    ) : (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          แก้ไขชื่อผู้ใช้
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={profileUser.name}
+            onChange={(e) =>
+              setProfileUser({ ...profileUser, name: e.target.value })
+            }
+            className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+          />
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.put<{ name: string }>("/users/me", {
+                  name: profileUser.name,
+                })
+                setUser({ ...user, name: res.data.name })
+                alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
+                setShowNameEdit(false) // 🔹 ซ่อนหลังบันทึกเสร็จ
+              } catch (err: any) {
+                const msg =
+                  err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
+                alert(msg)
+              }
+            }}
+            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+          >
+            บันทึก
+          </button>
+          <button
+            onClick={() => setShowNameEdit(false)}
+            className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition"
+          >
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
 
 
 
