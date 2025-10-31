@@ -323,21 +323,19 @@ export default function Profile() {
                     setUser({ ...user, name: res.data.name })
                     alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
                   } catch (err: any) {
-                    // ✅ ถ้า backend ส่งข้อความมาว่า “คุณสามารถเปลี่ยนชื่อได้อีกครั้งในอีก X วัน”
                     const msg =
                       err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
                     alert(msg)
-                    console.error(err)
                   }
                 }}
                 className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
               >
                 บันทึก
               </button>
-
             </div>
           </div>
         )}
+
 
 
         {user && user.id === profileUser.id && (
