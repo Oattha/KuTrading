@@ -1,6 +1,7 @@
 // controllers/reportController.js
 import prisma from "../config/prisma.js"
 import nodemailer from "nodemailer"
+import SibApiV3Sdk from "sib-api-v3-sdk";
 
 export const reportUser = async (req, res) => {
   try {
@@ -105,8 +106,6 @@ export const updateReportStatus = async (req, res) => {
   }
 }
 
-import prisma from "../config/prisma.js";
-import SibApiV3Sdk from "sib-api-v3-sdk";
 
 const brevoClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = brevoClient.authentications["api-key"];
