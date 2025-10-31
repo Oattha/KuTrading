@@ -3,6 +3,7 @@ import { useAuth } from "@/store/auth"
 import { api } from "@/lib/api"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { Post, PagedPostsResponse } from "@/types/post"
+import { motion, AnimatePresence } from "framer-motion"
 
 import {
   FaUser,
@@ -50,7 +51,7 @@ export default function Profile() {
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
 
   const [showNameEdit, setShowNameEdit] = useState(false)
-
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   // ⭐ เพิ่ม state สำหรับรีวิว
   const [reviews, setReviews] = useState<Review[]>([])
@@ -304,60 +305,130 @@ export default function Profile() {
         </div>
 
         {user && user.id === profileUser.id && (
-  <div className="mt-4">
-    {!showNameEdit ? (
-      <button
-        onClick={() => setShowNameEdit(true)}
-        className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
-      >
-        ✏️ แก้ไขชื่อ
-      </button>
-    ) : (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          แก้ไขชื่อผู้ใช้
-        </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={profileUser.name}
-            onChange={(e) =>
-              setProfileUser({ ...profileUser, name: e.target.value })
-            }
-            className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-          />
-          <button
-            onClick={async () => {
-              try {
-                const res = await api.put<{ name: string }>("/users/me", {
-                  name: profileUser.name,
-                })
-                setUser({ ...user, name: res.data.name })
-                alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
-                setShowNameEdit(false) // 🔹 ซ่อนหลังบันทึกเสร็จ
-              } catch (err: any) {
-                const msg =
-                  err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
-                alert(msg)
-              }
-            }}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
-          >
-            บันทึก
-          </button>
-          <button
-            onClick={() => setShowNameEdit(false)}
-            className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition"
-          >
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-)}
+          <div className="mt-4">
+            {!showNameEdit ? (
+              <button
+                onClick={() => setShowNameEdit(true)}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+              >
+                ✏️ แก้ไขชื่อ
+              </button>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  แก้ไขชื่อผู้ใช้
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={profileUser.name}
+                    onChange={(e) =>
+                      setProfileUser({ ...profileUser, name: e.target.value })
+                    }
+                    className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await api.put<{ name: string }>("/users/me", {
+                          name: profileUser.name,
+                        })
+                        setUser({ ...user, name: res.data.name })
+                        alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
+                        setShowNameEdit(false) // 🔹 ซ่อนหลังบันทึกเสร็จ
+                      } catch (err: any) {
+                        const msg =
+                          err.response?.data?.message || "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
+                        alert(msg)
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+                  >
+                    บันทึก
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmModal(true)}
+                    className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
+        {/* 🔹 Modal ยืนยันการเปลี่ยนชื่อ (พร้อม animation) */}
+        <AnimatePresence>
+          {showConfirmModal && (
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+              onClick={() => setShowConfirmModal(false)}
+            >
+              <motion.div
+                key="modal"
+                onClick={(e) => e.stopPropagation()}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="bg-white rounded-2xl p-6 w-[90%] max-w-sm shadow-xl text-center"
+              >
+                <h3 className="text-xl font-bold text-indigo-600 mb-4">
+                  ยืนยันการเปลี่ยนชื่อ?
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  หากคุณเปลี่ยนชื่อแล้ว จะสามารถเปลี่ยนได้อีกครั้งในอีก <b>7 วัน</b>
+                </p>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await api.put<{ name: string }>("/users/me", {
+                          name: profileUser.name,
+                        })
+                        setUser({ ...user!, name: res.data.name }) // ✅ ใช้ user! ปลอดภัย
+                        alert("✅ เปลี่ยนชื่อเรียบร้อยแล้ว!")
+                        setShowConfirmModal(false)
+                        setShowNameEdit(false)
+                      } catch (err: any) {
+                        const msg =
+                          err.response?.data?.message ||
+                          "❌ เกิดข้อผิดพลาดในการเปลี่ยนชื่อ"
+                        alert(msg)
+                        setShowConfirmModal(false)
+                      }
+                    }}
+                    className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
+                  >
+                    ✅ ยืนยัน
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition"
+                  >
+                    ❌ ยกเลิก
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
+        {/* 🔴 แล้วหลังจากนี้ค่อยมีปุ่ม Logout */}
+        {user && user.id === profileUser.id && (
+          <button
+            onClick={logout}
+            className="mt-8 flex items-center gap-2 px-5 py-2 bg-rose-500 text-white font-medium rounded-full hover:bg-rose-600 shadow-md transition"
+          >
+            <FaSignOutAlt /> Logout
+          </button>
+        )}
 
 
         {user && user.id === profileUser.id && (
